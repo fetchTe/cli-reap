@@ -160,12 +160,13 @@ export const argvEnvParse = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose 
   };
 
   return {
-    cmd: () => cmd,
-    opt: getOpt,
-    flag: getFlag,
     any: getAny,
-    pos: getPos,
+    cmd: () => cmd,
+    cur: () => cur,
     env: getEnv,
+    flag: getFlag,
+    opt: getOpt,
+    pos: getPos,
   } as const;
 };
 
