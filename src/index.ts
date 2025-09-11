@@ -79,7 +79,7 @@ const toArr = (key: string | string[], loose = false, _keys = (Array.isArray(key
     : _keys);
 
 
-export const argvEnvParse = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = false) => {
+export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = false) => {
   // makes assumption of a node-like env - if run second arg we assume bun/deno (bun run index.ts)
   const slice = argv[0] === 'node' ? 2 : (argv[1] === 'run' ? 3 : (isFlag(argv[0]) ? 0 : 1));
   const cur = argv.map(String).slice(slice);
@@ -170,7 +170,7 @@ export const argvEnvParse = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose 
   } as const;
 };
 
-export const argvEnvParseLoose = (argv = ARGV, procEnv = ENV, gthis = GLOBAL_THIS) =>
-  argvEnvParse(argv, procEnv, gthis, true);
+export const cliReapLoose = (argv = ARGV, procEnv = ENV, gthis = GLOBAL_THIS) =>
+  cliReap(argv, procEnv, gthis, true);
 
-export default argvEnvParse;
+export default cliReap;
