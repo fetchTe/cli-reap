@@ -6,8 +6,8 @@ import {
   describe,
 } from 'bun:test';
 import {
-  argvEnvParse,
-  argvEnvParseLoose,
+  cliReap,
+  cliReapLoose,
 } from './index.ts';
 
 // helper to generate different argv variations
@@ -215,7 +215,7 @@ const BASE_TEST_CASES = BASE_TEST_CASES_DEF.flatMap(([label, key, val, override]
 describe('argvParse().opt()/variation', () => {
   for (const [description, key, expected, argv] of BASE_TEST_CASES) {
     test(description, () => {
-      const result = argvEnvParse(argv as string[]).opt(key);
+      const result = cliReap(argv as string[]).opt(key);
       result !== expected
         && console.error(`${key} !== ${expected}: `, argv.join(' '));
       expect(result).toBe(expected);
@@ -226,24 +226,24 @@ describe('argvParse().opt()/variation', () => {
 describe('argvParse().any()/variation (for flags)', () => {
   for (const [description, flag, _expected, argv] of BASE_TEST_CASES) {
     test(description, () => {
-      const isPresent = argvEnvParse(argv as string[]).any(flag) !== null;
+      const isPresent = cliReap(argv as string[]).any(flag) !== null;
       isPresent !== true
         && console.error(`"${flag}" !== ${true}: `, argv.join(' '));
       expect(isPresent).toBe(true);
 
-      const isOtherPresent = argvEnvParse(argv as string[]).any(`other-${flag}`) !== null;
+      const isOtherPresent = cliReap(argv as string[]).any(`other-${flag}`) !== null;
       isOtherPresent
         && console.error(`other-${flag} !== ${false}: `, argv.join(' '));
       expect(isOtherPresent).toBe(false);
 
       if (flag) {
-        const isOtherPresent2 = argvEnvParse(argv as string[]).any(`${flag}-other`) !== null;
+        const isOtherPresent2 = cliReap(argv as string[]).any(`${flag}-other`) !== null;
         isOtherPresent2
           && console.error(`${flag}-other !== ${false}: `, argv.join(' '));
         expect(isOtherPresent2).toBe(false);
       }
 
-      const isAnotherPresent = argvEnvParse(argv as string[]).any(`another-${flag}-other`) !== null;
+      const isAnotherPresent = cliReap(argv as string[]).any(`another-${flag}-other`) !== null;
       isAnotherPresent
         && console.error(`another-${flag}-other !== ${false}: `, argv.join(' '));
       expect(isAnotherPresent).toBe(false);
@@ -254,125 +254,125 @@ describe('argvParse().any()/variation (for flags)', () => {
 
 describe('argvParseLoose()', () => {
   test('swaps hyphens and underscores for key matching', () => {
-    expect(argvEnvParseLoose(['-i-test', 'test']).opt('i-test')).toBe('test');
-    expect(argvEnvParseLoose(['-i-test', 'test']).opt('i_test')).toBe('test');
-    expect(argvEnvParseLoose(['-i_test', 'test']).opt('i-test')).toBe('test');
+    expect(cliReapLoose(['-i-test', 'test']).opt('i-test')).toBe('test');
+    expect(cliReapLoose(['-i-test', 'test']).opt('i_test')).toBe('test');
+    expect(cliReapLoose(['-i_test', 'test']).opt('i-test')).toBe('test');
   });
 
   test('matches keys case-insensitively', () => {
-    expect(argvEnvParseLoose(['--I', 'test']).opt('i')).toBe('test');
-    expect(argvEnvParseLoose(['-I', 'test']).opt('i')).toBe('test');
-    expect(argvEnvParseLoose(['--i', 'test']).opt('I')).toBe('test');
-    expect(argvEnvParseLoose(['-i', 'test']).opt('I')).toBe('test');
-    expect(argvEnvParseLoose(['--I', 'test']).opt('I')).toBe('test');
-    expect(argvEnvParseLoose(['-I', 'test']).opt('I')).toBe('test');
-    expect(argvEnvParseLoose(['--i', 'test']).opt('i')).toBe('test');
-    expect(argvEnvParseLoose(['-i', 'test']).opt('i')).toBe('test');
+    expect(cliReapLoose(['--I', 'test']).opt('i')).toBe('test');
+    expect(cliReapLoose(['-I', 'test']).opt('i')).toBe('test');
+    expect(cliReapLoose(['--i', 'test']).opt('I')).toBe('test');
+    expect(cliReapLoose(['-i', 'test']).opt('I')).toBe('test');
+    expect(cliReapLoose(['--I', 'test']).opt('I')).toBe('test');
+    expect(cliReapLoose(['-I', 'test']).opt('I')).toBe('test');
+    expect(cliReapLoose(['--i', 'test']).opt('i')).toBe('test');
+    expect(cliReapLoose(['-i', 'test']).opt('i')).toBe('test');
   });
 });
 
-describe('argvEnvParse().opt()', () => {
+describe('cliReap().opt()', () => {
   describe('Key Matching and Edge Cases', () => {
     test('is case-sensitive in strict mode', () => {
-      expect(argvEnvParse(['--I', 'test']).opt('i')).toBe(null);
-      expect(argvEnvParse(['-I', 'test']).opt('i')).toBe(null);
-      expect(argvEnvParse(['--i', 'test']).opt('I')).toBe(null);
-      expect(argvEnvParse(['-i', 'test']).opt('I')).toBe(null);
-      expect(argvEnvParse(['--I', 'test']).opt('I')).toBe('test');
-      expect(argvEnvParse(['-I', 'test']).opt('I')).toBe('test');
-      expect(argvEnvParse(['--i', 'test']).opt('i')).toBe('test');
-      expect(argvEnvParse(['-i', 'test']).opt('i')).toBe('test');
+      expect(cliReap(['--I', 'test']).opt('i')).toBe(null);
+      expect(cliReap(['-I', 'test']).opt('i')).toBe(null);
+      expect(cliReap(['--i', 'test']).opt('I')).toBe(null);
+      expect(cliReap(['-i', 'test']).opt('I')).toBe(null);
+      expect(cliReap(['--I', 'test']).opt('I')).toBe('test');
+      expect(cliReap(['-I', 'test']).opt('I')).toBe('test');
+      expect(cliReap(['--i', 'test']).opt('i')).toBe('test');
+      expect(cliReap(['-i', 'test']).opt('i')).toBe('test');
     });
 
     test('returns null for an empty key', () => {
-      expect(argvEnvParse(['--ptag-id', 'test']).opt('')).toBe(null);
+      expect(cliReap(['--ptag-id', 'test']).opt('')).toBe(null);
     });
 
     test('returns null for a whitespace key', () => {
-      expect(argvEnvParse(['--ptag-id', 'test']).opt(' ')).toBe(null);
-      expect(argvEnvParse(['-- ', 'test']).opt(' ')).toBe(null);
+      expect(cliReap(['--ptag-id', 'test']).opt(' ')).toBe(null);
+      expect(cliReap(['-- ', 'test']).opt(' ')).toBe(null);
     });
 
     test('returns null for a single hyphen key', () => {
-      expect(argvEnvParse(['--ptag-id', 'test']).opt('-')).toBe(null);
-      expect(argvEnvParse(['-id', 'test']).opt('-')).toBe(null);
+      expect(cliReap(['--ptag-id', 'test']).opt('-')).toBe(null);
+      expect(cliReap(['-id', 'test']).opt('-')).toBe(null);
     });
 
     test('handles extra leading hyphens in keys', () => {
-      expect(argvEnvParse(['---key', 'test']).opt('key')).toBe('test');
+      expect(cliReap(['---key', 'test']).opt('key')).toBe('test');
     });
 
     test('matches literal keys including their hyphens', () => {
       // if literal key, only
-      expect(argvEnvParse(['--key', 'test']).opt('key')).toBe('test');
-      expect(argvEnvParse(['--key', 'test']).opt('-key')).toBe(null);
-      expect(argvEnvParse(['--key', 'test']).opt('---key')).toBe(null);
-      expect(argvEnvParse(['--key', 'test']).opt('--key')).toBe('test');
-      expect(argvEnvParse(['-key', 'test']).opt('-key')).toBe('test');
-      expect(argvEnvParse(['---key', 'test']).opt('---key')).toBe('test');
+      expect(cliReap(['--key', 'test']).opt('key')).toBe('test');
+      expect(cliReap(['--key', 'test']).opt('-key')).toBe(null);
+      expect(cliReap(['--key', 'test']).opt('---key')).toBe(null);
+      expect(cliReap(['--key', 'test']).opt('--key')).toBe('test');
+      expect(cliReap(['-key', 'test']).opt('-key')).toBe('test');
+      expect(cliReap(['---key', 'test']).opt('---key')).toBe('test');
     });
   });
 
   describe('Value Parsing and Quote Handling', () => {
     test('preserves values with only whitespace', () => {
-      expect(argvEnvParse(['--ptag-id=" "']).opt('ptag-id')).toBe(' ');
-      expect(argvEnvParse(['--ptag-id', ' ']).opt('ptag-id')).toBe(' ');
+      expect(cliReap(['--ptag-id=" "']).opt('ptag-id')).toBe(' ');
+      expect(cliReap(['--ptag-id', ' ']).opt('ptag-id')).toBe(' ');
     });
 
     test('preserves values with tab characters', () => {
-      expect(argvEnvParse(['--ptag-id="\t"']).opt('ptag-id')).toBe('\t');
-      expect(argvEnvParse(['--ptag-id', '"\t"']).opt('ptag-id')).toBe('\t');
+      expect(cliReap(['--ptag-id="\t"']).opt('ptag-id')).toBe('\t');
+      expect(cliReap(['--ptag-id', '"\t"']).opt('ptag-id')).toBe('\t');
     });
 
     test('preserves apostrophes inside non-matching quotes', () => {
-      expect(argvEnvParse(['./ok', '--key', `"but, srsly'"`]).opt('key')).toBe(`but, srsly'`);
+      expect(cliReap(['./ok', '--key', `"but, srsly'"`]).opt('key')).toBe(`but, srsly'`);
     });
 
     test('strips matching quotes around values with apostrophes', () => {
-      expect(argvEnvParse(['./ok', `--key="shoudn't be an issue"`]).opt('key')).toBe(`shoudn't be an issue`);
+      expect(cliReap(['./ok', `--key="shoudn't be an issue"`]).opt('key')).toBe(`shoudn't be an issue`);
     });
 
     test('handles complex nested and recursive quotes', () => {
-      expect(argvEnvParse(['./ok', '--key', `"''''"`]).opt('key')).toBe(``);
-      expect(argvEnvParse(['./ok', '--key', `'""""'`]).opt('key')).toBe(``);
-      expect(argvEnvParse(['./ok', '--key', `'""silly""'`]).opt('key')).toBe(`silly`);
-      expect(argvEnvParse(['./ok', '--key', `'\'"\'"\'"\'"'`]).opt('key')).toBe(`'"'"'"'"`);
-      expect(argvEnvParse(['./ok', '--key', `'::::'`]).opt('key')).toBe(`::::`);
+      expect(cliReap(['./ok', '--key', `"''''"`]).opt('key')).toBe(``);
+      expect(cliReap(['./ok', '--key', `'""""'`]).opt('key')).toBe(``);
+      expect(cliReap(['./ok', '--key', `'""silly""'`]).opt('key')).toBe(`silly`);
+      expect(cliReap(['./ok', '--key', `'\'"\'"\'"\'"'`]).opt('key')).toBe(`'"'"'"'"`);
+      expect(cliReap(['./ok', '--key', `'::::'`]).opt('key')).toBe(`::::`);
     });
 
     test('preserves special characters in values', () => {
-      expect(argvEnvParse(['./ok', '--key=[o{k']).opt('key')).toBe('[o{k');
-      expect(argvEnvParse(['./ok', '--key', '[o{k']).opt('key')).toBe('[o{k');
-      expect(argvEnvParse(['./ok', '-key===<this/works>']).opt('key')).toBe('==<this/works>');
-      expect(argvEnvParse(['./ok', '-key', '<this/works>']).opt('key')).toBe('<this/works>');
+      expect(cliReap(['./ok', '--key=[o{k']).opt('key')).toBe('[o{k');
+      expect(cliReap(['./ok', '--key', '[o{k']).opt('key')).toBe('[o{k');
+      expect(cliReap(['./ok', '-key===<this/works>']).opt('key')).toBe('==<this/works>');
+      expect(cliReap(['./ok', '-key', '<this/works>']).opt('key')).toBe('<this/works>');
     });
 
     test('preserves escaped characters in values', () => {
-      expect(argvEnvParse(['node', '--ptag-id="\a\b\c"']).opt('ptag-id')).toBe('\a\b\c');
-      expect(argvEnvParse(['node', '--ptag-id="\\a\\b\\c"']).opt('ptag-id'))
+      expect(cliReap(['node', 'file.js', '--ptag-id="\a\b\c"']).opt('ptag-id')).toBe('\a\b\c');
+      expect(cliReap(['node', 'file.js', '--ptag-id="\\a\\b\\c"']).opt('ptag-id'))
         .toBe('\\a\\b\\c');
-      expect(argvEnvParse(['node', '--ptag-id=' + JSON.stringify('\'')]).opt('ptag-id')).toBe(`'`);
+      expect(cliReap(['node', 'file.js', '--ptag-id=' + JSON.stringify('\'')]).opt('ptag-id')).toBe(`'`);
       // shell/JSON behavior, not parser, but good to confirm
-      expect(argvEnvParse(['node', '--ptag-id=' + JSON.stringify('\f\n\r\t')]).opt('ptag-id'))
+      expect(cliReap(['node', 'file.js', '--ptag-id=' + JSON.stringify('\f\n\r\t')]).opt('ptag-id'))
         .toBe('\\f\\n\\r\\t');
     });
 
     test('passes through JSON string array values as-is', () => {
       const argv = ['node', 'script.js'];
-      expect(argvEnvParse(argv.concat(`--ptag-id="${JSON.stringify(['a', 'b', 'c'])}"`)).opt('ptag-id'))
+      expect(cliReap(argv.concat(`--ptag-id="${JSON.stringify(['a', 'b', 'c'])}"`)).opt('ptag-id'))
         .toBe(JSON.stringify(['a', 'b', 'c']));
-      expect(argvEnvParse(argv.concat(`--ptag-id='${JSON.stringify(['a', 'b', 'c'])}'`)).opt('ptag-id'))
+      expect(cliReap(argv.concat(`--ptag-id='${JSON.stringify(['a', 'b', 'c'])}'`)).opt('ptag-id'))
         .toBe(JSON.stringify(['a', 'b', 'c']));
-      expect(argvEnvParse(argv.concat('--ptag-id', '["a","b","c"]')).opt('ptag-id'))
+      expect(cliReap(argv.concat('--ptag-id', '["a","b","c"]')).opt('ptag-id'))
         .toBe(JSON.stringify(['a', 'b', 'c']));
     });
 
     test('passes through JSON string array with spaces as-is', () => {
       const argv = ['node', 'script.js'];
-      expect(argvEnvParse(argv.concat(`--ptag-id='${JSON.stringify([' a ', ' b', 'c '])}'`)).opt('ptag-id'))
+      expect(cliReap(argv.concat(`--ptag-id='${JSON.stringify([' a ', ' b', 'c '])}'`)).opt('ptag-id'))
         .toBe(JSON.stringify([' a ', ' b', 'c ']));
       // eslint-disable-next-line @stylistic/quotes
-      expect(argvEnvParse(argv.concat(`--ptag-id`, "[\" a \",\" b\",\"c \"]")).opt('ptag-id'))
+      expect(cliReap(argv.concat(`--ptag-id`, "[\" a \",\" b\",\"c \"]")).opt('ptag-id'))
         .toBe(JSON.stringify([' a ', ' b', 'c ']));
     });
 
@@ -381,237 +381,253 @@ describe('argvEnvParse().opt()', () => {
       const jsonObjStr = JSON.stringify({ a: 1, b: true, c: null });
       const jsonObjSpaceStr = JSON.stringify({ a: 1, b: true, c: null, d: ' test ' });
 
-      expect(argvEnvParse(argv.concat(`--ptag-id="${jsonObjStr}"`)).opt('ptag-id'))
+      expect(cliReap(argv.concat(`--ptag-id="${jsonObjStr}"`)).opt('ptag-id'))
         .toBe(jsonObjStr);
-      expect(argvEnvParse(argv.concat('--ptag-id', `"${jsonObjStr}"`)).opt('ptag-id'))
+      expect(cliReap(argv.concat('--ptag-id', `"${jsonObjStr}"`)).opt('ptag-id'))
         .toBe(jsonObjStr);
-      expect(argvEnvParse(argv.concat('--ptag-id', jsonObjStr)).opt('ptag-id'))
+      expect(cliReap(argv.concat('--ptag-id', jsonObjStr)).opt('ptag-id'))
         .toBe(jsonObjStr);
-      expect(argvEnvParse(argv.concat(`--ptag-id='${jsonObjSpaceStr}'`)).opt('ptag-id'))
+      expect(cliReap(argv.concat(`--ptag-id='${jsonObjSpaceStr}'`)).opt('ptag-id'))
         .toBe(jsonObjSpaceStr);
-      expect(argvEnvParse(argv.concat('--ptag-id', jsonObjSpaceStr)).opt('ptag-id'))
+      expect(cliReap(argv.concat('--ptag-id', jsonObjSpaceStr)).opt('ptag-id'))
         .toBe(jsonObjSpaceStr);
     });
   });
 });
 
 
-describe('argvEnvParse().flag()', () => {
+describe('cliReap().flag()', () => {
   test('returns true for a present long-form flag', () => {
-    expect(argvEnvParse(['--verbose']).flag('verbose')).toBe(true);
+    expect(cliReap(['--verbose']).flag('verbose')).toBe(true);
   });
 
   test('returns true for a present short-form flag', () => {
-    expect(argvEnvParse(['-v']).flag('v')).toBe(true);
+    expect(cliReap(['-v']).flag('v')).toBe(true);
   });
 
   test('returns null for a non-existent flag', () => {
-    expect(argvEnvParse(['--other']).flag('verbose')).toBe(null);
+    expect(cliReap(['--other']).flag('verbose')).toBe(null);
   });
 
   test('does not consume the following argument', () => {
-    const parser = argvEnvParse(['--verbose', 'file.txt']);
+    const src = ['--verbose', 'file.txt'];
+    const parser = cliReap(src);
+    expect(parser.cmd()).toEqual([]);
+    expect(parser.cur()).toEqual(src);
     expect(parser.flag('verbose')).toBe(true);
-    expect(parser.pos()).toEqual(['file.txt']);
+    expect(parser.cur().join()).toEqual(['file.txt'].join());
+    const pos = parser.pos();
+    expect(pos).toEqual(['file.txt']);
   });
 
   test('is case-sensitive in strict mode', () => {
-    expect(argvEnvParse(['--VERBOSE']).flag('verbose')).toBe(null);
-    expect(argvEnvParse(['--VERBOSE']).flag('VERBOSE')).toBe(true);
+    expect(cliReap(['--VERBOSE']).flag('verbose')).toBe(null);
+    expect(cliReap(['--VERBOSE']).flag('VERBOSE')).toBe(true);
   });
 });
 
 
-describe('argvEnvParse().any() - Flag Presence', () => {
+describe('cliReap().any() - Flag Presence', () => {
   test('returns true if any flag in an array is present (first match)', () => {
-    expect(argvEnvParse(['--flag']).any(['f', 'flag'])).toBe(true);
+    expect(cliReap(['--flag']).any(['f', 'flag'])).toBe(true);
   });
 
   test('returns true if any flag in an array is present (second match)', () => {
-    expect(argvEnvParse(['--flag']).any(['flag', 'f'])).toBe(true);
+    expect(cliReap(['--flag']).any(['flag', 'f'])).toBe(true);
   });
 
   test('returns null if no flag in an array is present', () => {
-    expect(argvEnvParse(['--flag']).any(['a', 'f'])).toBe(null);
+    expect(cliReap(['--flag']).any(['a', 'f'])).toBe(null);
   });
 
   test('returns true for a double-dashed flag', () => {
-    expect(argvEnvParse(['--flag']).any('flag')).toBe(true);
+    expect(cliReap(['--flag']).any('flag')).toBe(true);
   });
 
   test('returns true for a single-dashed flag', () => {
-    expect(argvEnvParse(['-flag']).any('flag')).toBe(true);
+    expect(cliReap(['-flag']).any('flag')).toBe(true);
   });
 
   test('returns value for a flag with an assigned value', () => {
-    expect(argvEnvParse(['--flag=value']).any('flag')).toBe('value');
+    expect(cliReap(['--flag=value']).any('flag')).toBe('value');
   });
 
   test('returns value for a flag with a subsequent value', () => {
-    expect(argvEnvParse(['--flag', 'value']).any('flag')).toBe('value');
+    expect(cliReap(['--flag', 'value']).any('flag')).toBe('value');
   });
 
   test('returns value for a single-dashed flag with an assigned value', () => {
-    expect(argvEnvParse(['-flag=value']).any('flag')).toBe('value');
+    expect(cliReap(['-flag=value']).any('flag')).toBe('value');
   });
 
   test('returns value for a single-dashed flag with a subsequent value', () => {
-    expect(argvEnvParse(['-flag', 'value']).any('flag')).toBe('value');
+    expect(cliReap(['-flag', 'value']).any('flag')).toBe('value');
   });
 
   test('returns null if the flag does not exist', () => {
-    expect(argvEnvParse(['--other-flag']).any('flag')).toBe(null);
+    expect(cliReap(['--other-flag']).any('flag')).toBe(null);
   });
 
   test('returns null if argv is empty', () => {
-    expect(argvEnvParse([]).any('flag')).toBe(null);
+    expect(cliReap([]).any('flag')).toBe(null);
   });
 
   test('is case-sensitive for flags', () => {
-    expect(argvEnvParse(['--FLAG']).any('flag')).toBe(null);
-    expect(argvEnvParse(['--FLAG']).any('FLAG')).toBe(true);
+    expect(cliReap(['--FLAG']).any('flag')).toBe(null);
+    expect(cliReap(['--FLAG']).any('FLAG')).toBe(true);
   });
 
   test('is case-sensitive for single-dashed flags', () => {
-    expect(argvEnvParse(['-FLAG']).any('flag')).toBe(null);
-    expect(argvEnvParse(['-FLAG']).any('FLAG')).toBe(true);
+    expect(cliReap(['-FLAG']).any('flag')).toBe(null);
+    expect(cliReap(['-FLAG']).any('FLAG')).toBe(true);
   });
 
   test('is case-sensitive for flags with values', () => {
-    expect(argvEnvParse(['--FLAG=value']).any('flag')).toBe(null);
-    expect(argvEnvParse(['--FLAG=value']).any('FLAG')).toBe('value');
+    expect(cliReap(['--FLAG=value']).any('flag')).toBe(null);
+    expect(cliReap(['--FLAG=value']).any('FLAG')).toBe('value');
   });
 
   test('finds a option at the beginning of argv', () => {
-    expect(argvEnvParse(['--flag', 'node', 'script.js']).any('flag')).toBe('node');
+    expect(cliReap(['--flag', 'node', 'script.js']).any('flag')).toBe('node');
   });
 
   test('finds a single-dashed option at the beginning of argv', () => {
-    expect(argvEnvParse(['-flag', 'node', 'script.js']).any('flag')).toBe('node');
+    expect(cliReap(['-flag', 'node', 'script.js']).any('flag')).toBe('node');
+  });
+
+  test('returns value for a flag with an assigned value using an array', () => {
+    const src = ['--this', '--flag=value', '--other'];
+    const arg = cliReap(src);
+    expect(arg.cmd().join()).toBe('');
+    expect(arg.cur().join()).toBe(src.join());
+    expect(arg.any(['flag', 'other'])).toBe('value');
+    expect(arg.any(['flag', 'other'])).toBe(true);
+    expect(arg.any(['flag', 'other'])).toBe(null);
+    expect(arg.cur().join()).toBe('--this');
   });
 });
 
 
-describe('argvEnvParse().any() - Value Retrieval and Fallbacks', () => {
+describe('cliReap().any() - Value Retrieval and Fallbacks', () => {
   test('returns true for a flag without a value', () => {
-    expect(argvEnvParse(['--flag']).any('flag')).toBe(true);
+    expect(cliReap(['--flag']).any('flag')).toBe(true);
   });
 
   test('returns the value for a flag with an assigned value', () => {
-    expect(argvEnvParse(['--flag=value']).any('flag')).toBe('value');
+    expect(cliReap(['--flag=value']).any('flag')).toBe('value');
   });
 
   test('returns the value for a flag with a subsequent value', () => {
-    expect(argvEnvParse(['--flag', 'value']).any('flag')).toBe('value');
+    expect(cliReap(['--flag', 'value']).any('flag')).toBe('value');
   });
 
   test('handles quoted values correctly', () => {
-    expect(argvEnvParse(['--flag="quoted value"']).any('flag')).toBe('quoted value');
+    expect(cliReap(['--flag="quoted value"']).any('flag')).toBe('quoted value');
     // eslint-disable-next-line @stylistic/quotes
-    expect(argvEnvParse(['--flag', "'quoted value'"]).any('flag')).toBe('quoted value');
+    expect(cliReap(['--flag', "'quoted value'"]).any('flag')).toBe('quoted value');
   });
 
   test('handles empty quoted values', () => {
     const argv = ['node', 'script.js'];
     // eslint-disable-next-line @stylistic/quotes
-    expect(argvEnvParse(argv.concat("--flag=''")).any('flag')).toBe('');
-    expect(argvEnvParse(argv.concat('--flag=""')).any('flag')).toBe('');
+    expect(cliReap(argv.concat("--flag=''")).any('flag')).toBe('');
+    expect(cliReap(argv.concat('--flag=""')).any('flag')).toBe('');
     // eslint-disable-next-line @stylistic/quotes
-    expect(argvEnvParse(["--flag=''", ...argv]).any('flag')).toBe('');
-    expect(argvEnvParse(['--flag=""', ...argv]).any('flag')).toBe('');
+    expect(cliReap(["--flag=''", ...argv]).any('flag')).toBe('');
+    expect(cliReap(['--flag=""', ...argv]).any('flag')).toBe('');
   });
 
   test('correctly parses a flag that is a substring of another flag', () => {
     let argv = ['node', 'script.js', '--flag-o', '--flag'];
-    expect(argvEnvParse(argv).any('flag')).toBe(true);
+    expect(cliReap(argv).any('flag')).toBe(true);
     argv = ['node', 'script.js', '--flag', '--flag-o'];
-    expect(argvEnvParse(argv).any('flag')).toBe(true);
+    expect(cliReap(argv).any('flag')).toBe(true);
     argv = ['node', 'script.js', '--flag=yes', '--flag-o'];
-    expect(argvEnvParse(argv).any('flag')).toBe('yes');
+    expect(cliReap(argv).any('flag')).toBe('yes');
     argv = ['node', 'script.js', '--flag-o', '--flag=yes'];
-    expect(argvEnvParse(argv).any('flag')).toBe('yes');
+    expect(cliReap(argv).any('flag')).toBe('yes');
   });
 
   test('falls back to environment variables', () => {
     const procEnv = { MY_KEY: 'env_value' };
-    expect(argvEnvParse([], procEnv).any('MY_KEY')).toBe('env_value');
+    expect(cliReap([], procEnv).any('MY_KEY')).toBe('env_value');
   });
 
   test('falls back to globalThis', () => {
     const gthis = { MY_KEY: 'gthis_value' } as never as typeof globalThis;
-    expect(argvEnvParse([], {}, gthis).any('MY_KEY')).toBe('gthis_value');
+    expect(cliReap([], {}, gthis).any('MY_KEY')).toBe('gthis_value');
   });
 
   test('falls back to default value', () => {
-    expect(argvEnvParse([]).any('key', 'default_value')).toBe('default_value');
+    expect(cliReap([]).any('key', 'default_value')).toBe('default_value');
   });
 
   test('prioritizes argv > env > global > default', () => {
     const argv = ['--key=argv_val'];
     const procEnv = { key: 'env_val' };
     const gthis = { key: 'gthis_val' } as never as typeof globalThis;
-    expect(argvEnvParse(argv, procEnv, gthis).any('key', 'default_val')).toBe('argv_val');
-    expect(argvEnvParse([], procEnv, gthis).any('key', 'default_val')).toBe('env_val');
-    expect(argvEnvParse([], {}, gthis).any('key', 'default_val')).toBe('gthis_val');
+    expect(cliReap(argv, procEnv, gthis).any('key', 'default_val')).toBe('argv_val');
+    expect(cliReap([], procEnv, gthis).any('key', 'default_val')).toBe('env_val');
+    expect(cliReap([], {}, gthis).any('key', 'default_val')).toBe('gthis_val');
   });
 });
 
 
-describe('argvEnvParse().pos()', () => {
+describe('cliReap().pos()', () => {
   describe('Initial State (No Arguments Parsed)', () => {
     test('returns an empty array when no positionals are present', () => {
-      expect(argvEnvParse([]).pos()).toEqual([]);
-      expect(argvEnvParse(['node']).pos()).toEqual([]);
-      expect(argvEnvParse(['node', 'script.js']).pos()).toEqual([]);
+      expect(cliReap([]).pos()).toEqual([]);
+      expect(cliReap(['node']).pos()).toEqual([]);
+      expect(cliReap(['node', 'script.js']).pos()).toEqual([]);
     });
 
     test('returns an empty array when only flags/options are present', () => {
-      expect(argvEnvParse(['node', 'script.js', '--verbose', '-d', '--force']).pos()).toEqual([]);
-      expect(argvEnvParse(['node', 'script.js', '--output=file.txt', '-l', '10']).pos()).toEqual(['10']);
-      expect(argvEnvParse(['node', 'script.js', '--output', '/path/to/file']).pos()).toEqual(['/path/to/file']);
+      expect(cliReap(['node', 'script.js', '--verbose', '-d', '--force']).pos()).toEqual([]);
+      expect(cliReap(['node', 'script.js', '--output=file.txt', '-l', '10']).pos()).toEqual(['10']);
+      expect(cliReap(['node', 'script.js', '--output', '/path/to/file']).pos()).toEqual(['/path/to/file']);
     });
 
     test('finds a single positional argument', () => {
-      expect(argvEnvParse(['node', 'script.js', 'source.txt']).pos()).toEqual(['source.txt']);
+      expect(cliReap(['node', 'script.js', 'source.txt']).pos()).toEqual(['source.txt']);
     });
 
     test('finds multiple positional arguments', () => {
-      expect(argvEnvParse(['node', 'script.js', 'source.txt', 'dest.txt']).pos())
+      expect(cliReap(['node', 'script.js', 'source.txt', 'dest.txt']).pos())
         .toEqual(['source.txt', 'dest.txt']);
     });
 
     test('finds positionals mixed with unparsed options', () => {
       const argv = ['node', 'script.js', 'copy', '--verbose', 'src.zip', '--output', 'dest.zip', 'backup'];
       // before parsing, anything not an option's value is positional
-      expect(argvEnvParse(argv).pos()).toEqual(['copy', 'src.zip', 'dest.zip', 'backup']);
-      const ctx = argvEnvParse(argv);
+      expect(cliReap(argv).pos()).toEqual(['copy', 'src.zip', 'dest.zip', 'backup']);
+      const ctx = cliReap(argv);
       expect(ctx.opt('output')).toEqual('dest.zip');
       expect(ctx.pos()).toEqual(['copy', 'src.zip', 'backup']);
     });
 
     test('finds positionals at the beginning, middle, and end', () => {
-      expect(argvEnvParse(['node', 'script.js', 'pos1', '--flag', '--opt=1']).pos()).toEqual(['pos1']);
-      expect(argvEnvParse(['node', 'script.js', '--opt=val', 'pos2', '-f']).pos()).toEqual(['pos2']);
+      expect(cliReap(['node', 'script.js', 'pos1', '--flag', '--opt=1']).pos()).toEqual(['pos1']);
+      expect(cliReap(['node', 'script.js', '--opt=val', 'pos2', '-f']).pos()).toEqual(['pos2']);
     });
   });
 
   describe('State after Parsing Arguments', () => {
     test('excludes known flags but not their subsequent arguments', () => {
-      const parser = argvEnvParse(['node', 'script.js', '--verbose', 'file.txt', '--force', 'another.txt']);
+      const parser = cliReap(['node', 'script.js', '--verbose', 'file.txt', '--force', 'another.txt']);
       parser.flag('verbose');
       parser.flag('force');
       expect(parser.pos()).toEqual(['file.txt', 'another.txt']);
     });
 
     test('handles both long and short versions of known flags', () => {
-      const parser = argvEnvParse(['node', 'script.js', '-v', 'pos1', '-f', 'pos2']);
+      const parser = cliReap(['node', 'script.js', '-v', 'pos1', '-f', 'pos2']);
       parser.flag('v');
       parser.flag('f');
       expect(parser.pos()).toEqual(['pos1', 'pos2']);
     });
 
     test('excludes known options and their values', () => {
-      const parser = argvEnvParse(['node', 'script.js', '--output', 'file.txt', '--verbose', 'positional']);
+      const parser = cliReap(['node', 'script.js', '--output', 'file.txt', '--verbose', 'positional']);
       parser.flag('verbose');
       parser.opt('output');
       expect(parser.pos()).toEqual(['positional']);
@@ -619,7 +635,7 @@ describe('argvEnvParse().pos()', () => {
 
     test('identifies positionals among a mix of parsed flags and options', () => {
       const argv = ['./exe', '-m', '--mode', 'fuzz', '--fast', 'input.jpg', 'output.jpg'];
-      const parser = argvEnvParse(argv);
+      const parser = cliReap(argv);
       parser.flag('m');
       parser.flag('fast');
       parser.opt('mode');
@@ -627,7 +643,7 @@ describe('argvEnvParse().pos()', () => {
     });
 
     test('returns empty array if only known flags and options are present', () => {
-      const parser = argvEnvParse(['node', 'script.js', '--output', 'file.txt', '-v', '--force']);
+      const parser = cliReap(['node', 'script.js', '--output', 'file.txt', '-v', '--force']);
       parser.flag('v');
       parser.flag('force');
       parser.opt('output');
@@ -636,101 +652,105 @@ describe('argvEnvParse().pos()', () => {
 
     test('differentiates between parsing a flag vs an option of the same name', () => {
       const argv = ['node', 'script.js', '--flag', 'value', 'pos1'];
-      const flagParser = argvEnvParse(argv);
+      const flagParser = cliReap(argv);
       flagParser.flag('flag');
       expect(flagParser.pos()).toEqual(['value', 'pos1']);
 
-      const optParser = argvEnvParse(argv);
+      const optParser = cliReap(argv);
       optParser.opt('flag');
       expect(optParser.pos()).toEqual(['pos1']);
     });
   });
 
-  describe('with -- Terminator', () => {
+  describe('with -- terminator', () => {
     test('treats all arguments after -- as positional', () => {
-      const parser = argvEnvParse(['node', 'script.js', '--flag', '--', 'pos1', '--not-a-flag', '-n']);
-      parser.flag('flag');
+      const parser = cliReap(['node', 'script.js', '--flag', '--', 'pos1', '--not-a-flag', '-n']);
+      expect(parser.flag('node')).toEqual(null);
+      expect(parser.flag('flag')).toEqual(true);
+      expect(parser.flag('not-a-flag')).toEqual(null);
+      expect(parser.flag('-n')).toEqual(null);
       expect(parser.pos()).toEqual(['pos1', '--not-a-flag', '-n']);
     });
 
     test('finds positionals both before and after --', () => {
-      const parser = argvEnvParse(['node', 'script.js', 'pos1', '--opt=val', '--', 'pos2', '-f']);
+      const parser = cliReap(['node', 'script.js', 'pos1', '--opt=val', '--', 'pos2', '-f']);
       parser.opt('opt');
       expect(parser.pos()).toEqual(['pos1', 'pos2', '-f']);
     });
 
     test('returns empty array if -- is the only argument after the script', () => {
-      expect(argvEnvParse(['node', 'script.js', '--']).pos()).toEqual([]);
+      expect(cliReap(['node', 'script.js', '--']).pos()).toEqual([]);
     });
 
     test('handles a second -- as a positional argument', () => {
-      expect(argvEnvParse(['node', 'script.js', '--', '--']).pos()).toEqual(['--']);
+      expect(cliReap(['node', 'script.js', '--', '--']).pos()).toEqual(['--']);
     });
   });
 
   describe('with Edge-Case Positional Values', () => {
     test('treats a single dash (-) as a positional argument', () => {
-      expect(argvEnvParse(['test', '-', 'out.txt']).pos()).toEqual(['-', 'out.txt']);
+      expect(cliReap(['test', '-', 'out.txt']).pos()).toEqual(['-', 'out.txt']);
     });
 
     test('handles numeric-looking strings as positionals', () => {
-      expect(argvEnvParse(['test', '123', '456.7', '-99']).pos()).toEqual(['123', '456.7', '-99']);
+      expect(cliReap(['test', '123', '456.7', '-99']).pos()).toEqual(['123', '456.7', '-99']);
     });
 
     test('handles file paths as positionals', () => {
-      expect(argvEnvParse(['/path/to/source', './dest.txt']).pos()).toEqual(['./dest.txt']);
+      expect(cliReap(['/path/to/source', './dest.txt']).pos()).toEqual(['./dest.txt']);
     });
 
     test('handles a URL as a positional argument', () => {
-      expect(argvEnvParse(['curl', 'https://example.com']).pos()).toEqual(['https://example.com']);
+      expect(cliReap(['curl', 'https://example.com']).pos()).toEqual(['https://example.com']);
     });
 
     test('handles positionals that contain hyphens', () => {
-      expect(argvEnvParse(['some-value', 'another-value']).pos()).toEqual(['another-value']);
+      expect(cliReap(['some-value', 'another-value']).pos()).toEqual(['another-value']);
     });
 
     test('handles a single positional that contains spaces (pre-parsed by shell)', () => {
-      expect(argvEnvParse(['run', 'a value with spaces']).pos()).toEqual(['a value with spaces']);
+      expect(cliReap(['run', 'a value with spaces']).pos()).toEqual(['a value with spaces']);
     });
   });
 });
 
-describe('argvEnvParse().cmd()', () => {
+describe('cliReap().cmd()', () => {
   test('identifies command for "node"', () => {
-    expect(argvEnvParse(['node', 'script.js', 'positional']).cmd()).toEqual(['node', 'script.js']);
+    expect(cliReap(['node', 'script.js', 'positional']).cmd()).toEqual(['node', 'script.js']);
+    expect(cliReap(['node', 'script.js', 'positional']).cur()).toEqual(['positional']);
   });
 
   test('identifies command for "bun run"', () => {
     const argv = ['bun', 'run', 'script.ts', '--flag', 'value', 'pos1'];
-    expect(argvEnvParse(argv).cmd()).toEqual(['bun', 'run', 'script.ts']);
+    expect(cliReap(argv).cmd()).toEqual(['bun', 'run', 'script.ts']);
   });
 
   test('identifies command for an unknown/direct executable', () => {
-    expect(argvEnvParse(['./my-cli', 'arg1', 'arg2']).cmd()).toEqual(['./my-cli']);
+    expect(cliReap(['./my-cli', 'arg1', 'arg2']).cmd()).toEqual(['./my-cli']);
   });
 
   test('returns an empty array if the first argument is a flag', () => {
-    expect(argvEnvParse(['--flag', 'arg1']).cmd()).toEqual([]);
+    expect(cliReap(['--flag', 'arg1']).cmd()).toEqual([]);
   });
 });
 
-describe('argvEnvParse().env()', () => {
+describe('cliReap().env()', () => {
   const procEnv = { 'FROM_PROC': 'proc_val', 'MY-VAR': 'val' };
   const gthis = { FROM_GTHIS: 'gthis_val' } as never as typeof globalThis;
 
   test('retrieves a value from procEnv', () => {
-    expect(argvEnvParse([], procEnv, gthis).env('FROM_PROC')).toBe('proc_val');
+    expect(cliReap([], procEnv, gthis).env('FROM_PROC')).toBe('proc_val');
   });
 
   test('retrieves a value from globalThis as a fallback', () => {
-    expect(argvEnvParse([], procEnv, gthis).env('FROM_GTHIS')).toBe('gthis_val');
+    expect(cliReap([], procEnv, gthis).env('FROM_GTHIS')).toBe('gthis_val');
   });
 
   test('returns null if the key is not found anywhere', () => {
-    expect(argvEnvParse([], procEnv, gthis).env('NOT_FOUND')).toBe(null);
+    expect(cliReap([], procEnv, gthis).env('NOT_FOUND')).toBe(null);
   });
 
   test('handles loose matching of hyphens and underscores when enabled', () => {
-    expect(argvEnvParseLoose([], procEnv).env('MY_VAR')).toBe('val');
+    expect(cliReapLoose([], procEnv).env('MY_VAR')).toBe('val');
   });
 });
