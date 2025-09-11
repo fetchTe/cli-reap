@@ -1,0 +1,70 @@
+{
+  "name": "argv-env",
+  "version": "0.0.1",
+  "description": "a node package",
+  "homepage": "https://github.com/fetchTe/argv-env",
+  "license": "MIT",
+  "keywords": [ "node", "bun-make" ],
+  "files": [ "dist" ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "make release",
+    "test": "make test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@eslint/js": "9.29.0",
+    "@stylistic/eslint-plugin": "4.4.1",
+    "@types/bun": "1.2.16",
+    "@types/eslint": "9.6.1",
+    "@types/node": "24.0.1",
+    "@typescript-eslint/parser": "8.34.0",
+    "eslint": "9.29.0",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.34.0"
+  },
+  "exports": {
+    ".": {
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      },
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./index": {
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      },
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "author": {
+    "email": "git@fetchte.com",
+    "name": "fetchTe",
+    "url": "https://github.com/fetchTe/argv-env"
+  },
+  "bugs": {
+    "email": "git@fetchte.com",
+    "url": "https://github.com/fetchTe/argv-env/issues"
+  },
+  "engines": {
+    "node": ">=14.15.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fetchTe/argv-env.git"
+  }
+}
