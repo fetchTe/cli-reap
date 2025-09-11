@@ -78,15 +78,11 @@ const toArr = (key: string | string[], loose = false, _keys = (Array.isArray(key
     : _keys);
 
 
-export const argvEnvParse = (argv = ARGV, procEnv = PROC_ENV, gthis = GLOBAL_THIS, loose = false) => {
-  const cur = [...argv].map(String);
-
-  // makes assumption of a node-like env
-  const cmd = argv.slice(
-    0,
-    // if 'run', assume bun or deno: bun run ./file.ts
-    argv[0] === 'node' ? 2 : (argv[1] === 'run' ? 3 : (isFlag(argv[0]) ? 0 : 1)),
-  );
+export const argvEnvParse = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = false) => {
+  // makes assumption of a node-like env - if run second arg we assume bun/deno (bun run index.ts)
+  const slice = argv[0] === 'node' ? 2 : (argv[1] === 'run' ? 3 : (isFlag(argv[0]) ? 0 : 1));
+  const cur = argv.map(String).slice(slice);
+  const cmd = argv.map(String).slice(0, slice);
 
   const getArgv = (keys: string | string[], optValue = false) => {
     const keyList = toArr(keys, loose);
@@ -151,7 +147,7 @@ export const argvEnvParse = (argv = ARGV, procEnv = PROC_ENV, gthis = GLOBAL_THI
   // positional arguments
   const getPos = () => {
     const result: string[] = [];
-    for (let i = cmd.length; i < cur.length; i++) {
+    for (let i = 0; i < cur.length; i++) {
       const token = cur[i];
       if (!token) {continue;}
       // the option terminator (--) -> terminates all into positionals
