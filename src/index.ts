@@ -1,7 +1,8 @@
 type NonEmptyString = string & { length: number };
+type GlobalThis = typeof globalThis;
 
 // empty polyfil for prehistoric node envs to avoid needless runtime errors
-const GLOBAL_THIS = typeof globalThis !== 'undefined' ? globalThis : {} as typeof globalThis;
+const GLOBAL_THIS = typeof globalThis !== 'undefined' ? globalThis : {} as GlobalThis;
 
 /**
  * command-line arguments (pure/iffe wrapped so we can shake the tree)
@@ -26,7 +27,7 @@ export const ARGV: string[] = /* @__PURE__ */ (() =>
  * process environment (ENV) variables
  * @see {@link https://nodejs.org/api/process.html#processenv|Node.js env docs}
  */
-export const PROC_ENV = /* @__PURE__ */ (() => typeof process === 'undefined'
+export const ENV = /* @__PURE__ */ (() => typeof process === 'undefined'
   ? {}
   /** deno {@link https://docs.deno.com/runtime/reference/env_variables/#built-in-deno.env} */
   : (!(globalThis as never)?.['Deno']
@@ -40,7 +41,7 @@ export const PROC_ENV = /* @__PURE__ */ (() => typeof process === 'undefined'
       } catch (_err) { /* ignore */ }
       return {};
     })())
-)();
+)() as NodeJS.ProcessEnv;
 
 
 /**
@@ -124,8 +125,8 @@ export const argvEnvParse = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose 
 
   // environment arguments (process > globalThis)
   const getEnv = (keys: string | string[]): string | null => (toArr(keys, loose).map(key =>
-    ((key in procEnv)
-      ? procEnv[key]
+    ((key in env)
+      ? env[key]
       : (key in gthis)
         ? gthis[key as never]
         : null)).filter(Boolean)[0] ?? null);
@@ -168,7 +169,7 @@ export const argvEnvParse = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose 
   } as const;
 };
 
-export const argvEnvParseLoose = (argv = ARGV, procEnv = PROC_ENV, gthis = GLOBAL_THIS) =>
+export const argvEnvParseLoose = (argv = ARGV, procEnv = ENV, gthis = GLOBAL_THIS) =>
   argvEnvParse(argv, procEnv, gthis, true);
 
 export default argvEnvParse;
