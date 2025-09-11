@@ -10,278 +10,518 @@ import {
   argvEnvParseLoose,
 } from './index.ts';
 
+// helper to generate different argv variations
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const createArgvVariations = (flag: string, value: any): [string, (string | number)[]][] => {
+  const variations: [string, (string | number)[]][] = [];
+  const formats = (
+    String(value).includes(' ')
+      ? []
+      : [
+        [`-${flag}`, value], // single dash space
+        [`--${flag}`, value], // double dash space
+        [`-${flag}=${value}`], // single dash equals
+        [`--${flag}=${value}`], // double dash equals
+      ]).concat(!String(value).length
+    ? []
+    : [
+      [`-${flag}`, `'${value}'`], // single dash space - '' quotes
+      [`--${flag}`, `"${value}"`], // double dash space - "" quotes
+      [`-${flag}="${value}"`], // single dash equals - "" quotes
+      [`--${flag}='${value}'`], // double dash equals - '' quotes
+    ]);
+  const afmts = new Set<string>();
+  for (const format of formats) {
+    const fmt = format.join(' ');
+    if (afmts.has(fmt)) { continue; }
+    afmts.add(fmt);
+    // Standard: node script.js [args]
+    variations.push([fmt, ['node', 'script.js', ...format] ]);
+    // // Args before node/script
+    // variations.push([fmt, [...format, 'node', 'script.js'] ]);
+    // aixed with other args
+    variations.push([fmt, ['this', `--not-${flag}`, value, ...format, '--that', 'example'] ]);
+    // args at end with other params
+    variations.push([fmt, ['node', 'script.js', `-${flag[0]}`, '--for', `-nor-${flag}=1`, ...format] ]);
+    variations.push([fmt, ['./exe', ...format, '-script', '-it'] ]);
+    variations.push([fmt, ['/bin/exe', 'script', ...format, '--shelly'] ]);
+  }
+  return variations;
+};
 
-describe('argvParse - loose', () => {
-  test('loose hyphan underscore', () => {
-    expect(argvEnvParseLoose(['node', 'script.js', '-i-test', 'test']).opt('i-test')).toBe('test');
-    expect(argvEnvParseLoose(['node', 'script.js', '-i-test', 'test']).opt('i_test')).toBe('test');
-    expect(argvEnvParseLoose(['node', 'script.js', '-i_test', 'test']).opt('i-test')).toBe('test');
-  });
 
-  test('should handle casing - loose', () => {
-    expect(argvEnvParseLoose(['node', 'script.js', '--I', 'test']).opt('i')).toBe('test');
-    expect(argvEnvParseLoose(['node', 'script.js', '-I', 'test']).opt('i')).toBe('test');
-    expect(argvEnvParseLoose(['node', 'script.js', '--i', 'test']).opt('I')).toBe('test');
-    expect(argvEnvParseLoose(['node', 'script.js', '-i', 'test']).opt('I')).toBe('test');
-    expect(argvEnvParseLoose(['node', 'script.js', '--I', 'test']).opt('I')).toBe('test');
-    expect(argvEnvParseLoose(['node', 'script.js', '-I', 'test']).opt('I')).toBe('test');
-    expect(argvEnvParseLoose(['node', 'script.js', '--i', 'test']).opt('i')).toBe('test');
-    expect(argvEnvParseLoose(['node', 'script.js', '-i', 'test']).opt('i')).toBe('test');
-  });
+type BaseTestCasesDef = [description: string, key: string, expected: string | boolean | number, override?: string][];
+const BASE_TEST_CASES_DEF: BaseTestCasesDef = [
+  // basic
+  ['basic-string', 'key', 'test'],
+  ['basic-string-id', 'key-id', 'test'],
+  ['string-space', 'key', 'test space'],
+  ['string-space-id', 'key-id', 'test space'],
+  ['string-hyphen', 'key', 'test-hyphen'],
+  ['string-hyphen-id', 'key-id', 'test-hyphen'],
 
+  ['string-case-sensitive-flag', 'Key', 'test'],
+  ['string-case-sensitive-flag-mixed', 'kEy', 'test'],
+  ['string-case-sensitive-value', 'key', 'Test'],
+  ['string-case-sensitive-value-mixed', 'key', 'tEsT'],
+
+  // special string Cases
+  ['string-equals-symbol', 'key', '='],
+
+  ['string-whitespace-only', 'key', '   '],
+  ['string-backslash', 'key', '\\'],
+  ['string-forward-slash', 'key', '/'],
+  ['string-unicode-emoji', 'key', '😀'],
+  ['string-unicode-special', 'key', '∑'],
+  ['string-html-entities', 'key', '<div>'],
+  // eslint-disable-next-line @stylistic/quotes
+  ['string-sql-injection', 'key', "' OR '1'='1"],
+  ['string-xss-attempt', 'key', '<script>alert(1)</script>'],
+  ['string-null', 'key', 'null'],
+  ['string-equals', 'key', '='],
+  // eslint-disable-next-line @stylistic/quotes
+  ['string-quoted-hyphen', 'key', "'-'", "-"],
+  ['string-whitespace', 'key', '   '],
+  ['string-special-chars', 'key', '!@#$%^&*()'],
+  ['string-unicode', 'key', 'αβγδεζηθικλμνξο'],
+  ['string-emoji', 'key', '😀👍'],
+  ['string-backslash', 'key', '\\'],
+  ['string-double-backslash', 'key', '\\\\'],
+  // eslint-disable-next-line @stylistic/quotes
+  ['string-single-quoted', 'key', "'single'", "single"],
+  // eslint-disable-next-line @stylistic/quotes
+  ['string-mulit-quoted', 'key', "'single quoted'", "single quoted"],
+  ['string-escaped-quotes', 'key', '\"quoted text\"', 'quoted text'],
+
+  ['string-mixed-quotes', 'key', `'some "quoted text"\\ here'`, `some "quoted text"\\ here`], // need to escape spaces
+  ['string-mixed-quotes', 'key', `'some \'quoted text\'\\ here'`, `some \'quoted text\'\\ here`], // need to escape spaces
+
+  // special key formats
+  ['string-camelCase-key', 'camelCaseKey', 'value'],
+  ['string-snake_case-key', 'snake_case_key', 'value'],
+  ['string-PascalCase-key', 'PascalCaseKey', 'value'],
+  ['string-dot.notation-key', 'dot.notation', 'value'],
+  ['string-very-long-key', 'this-is-a-very-long-key-name-that-might-cause-issues', 'value'],
+  ['string-numeric-key', '123key', 'value'],
+
+  // URL and path related
+  ['url-simple', 'url', 'https://example.com'],
+  ['url-with-params', 'url', 'https://example.com?param=value'],
+  ['url-with-hash', 'url', 'https://example.com#section'],
+  ['url-complex', 'url', 'https://user:pass@example.com:8080/path?query=value#fragment'],
+  ['file-path-unix', 'path', '/usr/local/bin'],
+  ['file-path-windows', 'path', 'C:\\Program Files\\App'],
+  ['relative-path', 'path', '../parent/file.txt'],
+
+  // boolean Cases
+  ['boolean-true', 'key', true],
+  ['boolean-false', 'key', false],
+  ['string-true', 'key', 'true'],
+  ['string-false', 'key', 'false'],
+  ['string-uppercase-true', 'key', 'TRUE'],
+  ['string-uppercase-false', 'key', 'FALSE'],
+  ['string-mixed-case-true', 'key', 'True'],
+  ['string-mixed-case-false', 'key', 'False'],
+
+  // Number Cases
+  ['number-zero', 'key', 0],
+  ['number-one', 'key', 1],
+  ['number-large', 'key', 420],
+  ['number-neg-zero', 'key', -0],
+  ['number-neg-one', 'key', '-1'],
+  ['number-neg-large', 'key', -420],
+  ['number-float', 'key', 1.23],
+  ['number-neg-float', 'key', -1.23],
+  ['number-very-large', 'key', 9007199254740991], // MAX_SAFE_INTEGER
+  ['number-very-small', 'key', -9007199254740991], // -MAX_SAFE_INTEGER
+  ['string-scientific-notation', 'key', '1.23e+5'],
+  ['string-negative-scientific', 'key', '-4.56e-3'],
+  ['string-infinity', 'key', 'Infinity'],
+  ['string-negative-infinity', 'key', '-Infinity'],
+  ['string-not-a-number', 'key', 'NaN'],
+
+
+  // json misc
+  // eslint-disable-next-line @stylistic/comma-spacing
+  ['json-array', 'json', JSON.stringify([1,2,3])],
+  ['json-number', 'json', JSON.stringify(1)],
+  ['json-zero', 'json', JSON.stringify(0)],
+  ['json-negative', 'json', JSON.stringify(-1)],
+  ['json-negative-zero', 'json', JSON.stringify(-0)],
+  ['json-decimal', 'json', JSON.stringify(1.420)],
+  ['json-negative-decimal', 'json', JSON.stringify(-4.20)],
+  ['json-object', 'json', JSON.stringify({a: 1, b: true, c: null})],
+  ['json-string-array', 'json', JSON.stringify(['a', 'b', 'c'])],
+  // eslint-disable-next-line @stylistic/array-bracket-spacing
+  ['json-css-array', 'json', JSON.stringify([ 'color:#0000;margin:0 -1px 0 -1ch;', 'color:^;', 'border-right:2px solid ^;', 'margin:-1px;font-family:Menlo,monospace;' ])],
+  // eslint-disable-next-line @stylistic/comma-spacing
+  ['js-dash-array', 'js-dash', JSON.stringify([1,2,3])],
+  ['js-dash-number', 'js-dash', JSON.stringify(1)],
+  ['js-dash-zero', 'js-dash', JSON.stringify(0)],
+  ['js-dash-decimal', 'js-dash', JSON.stringify(1.420)],
+  ['js-dash-negative-decimal', 'js-dash', JSON.stringify(-4.20)],
+  ['js-dash-object', 'js-dash', JSON.stringify({a: 1, b: true, c: null})],
+  ['js-dash-string-array', 'js-dash', JSON.stringify(['a', 'b', 'c'])],
+  // eslint-disable-next-line @stylistic/array-bracket-spacing
+  ['js-dash-css-array', 'js-dash', JSON.stringify([ 'color:#0000;margin:0 -1px 0 -1ch;', 'color:^;', 'border-right:2px solid ^;', 'margin:-1px;font-family:Menlo,monospace;' ])],
+
+  // JSON Edge Cases
+  ['json-empty-object', 'json', JSON.stringify({})],
+  ['json-empty-array', 'json', JSON.stringify([])],
+  ['json-nested-object', 'json', JSON.stringify({a: {b: {c: 1}}})],
+  ['json-nested-array', 'json', JSON.stringify([1, [2, [3, 4] ], 5])],
+  ['json-null-value', 'json', JSON.stringify(null)],
+
+  // security misc
+  ['security-injection', 'key', ';rm -rf /'],
+  ['security-sql', 'key', 'DROP TABLE users;'],
+  ['security-script', 'key', '<script>alert(1)</script>'],
+  ['security-encoded', 'key', encodeURIComponent('<script>alert(1)</script>')],
+
+  // Malformed Inputs
+  ['malformed-json', 'json', '{invalid json'],
+  ['malformed-value-brackets', 'key', '[test'],
+  ['malformed-value-braces', 'key', '{test'],
+  ['malformed-value-parentheses', 'key', '(test'],
+  ['malformed-value-angle', 'key', '<test'],
+  ['malformed-value-mixed', 'key', '[te{st}'],
+
+  // Edge Cases
+  ['edge-value-leading-space', 'key', ' test'],
+  ['edge-value-trailing-space', 'key', 'test '],
+  ['edge-value-both-spaces', 'key', ' test '],
+  ['edge-value-equals-start', 'key', '=test'],
+  ['edge-value-equals-end', 'key', 'test='],
+  ['edge-value-equals-middle', 'key', 'te=st'],
+  ['edge-value-multi-equals', 'key', '==test=='],
+  ['edge-value-null-json', 'key', JSON.stringify(null)],
+  ['edge-escaped-newline', 'key', '\\n', '\\n'],
+  ['edge-escaped-tab', 'key', '\\t', '\\t'],
+  ['edge-escaped-return', 'key', '\\r', '\\r'],
+  ['edge-value-undefined-as-string', 'key', 'undefined'],
+  ['edge-value-null-as-string', 'key', 'null'],
+
+];
+
+const BASE_TEST_CASES = BASE_TEST_CASES_DEF.flatMap(([label, key, val, override], idx) => createArgvVariations(key, val)
+  .map(([variation, argv], i) => [
+    `variation:${String(idx).padStart(3, '0')} ${label} -> i:${String(i).padStart(2, '0')} -> ${variation}`,
+    key,
+    override ?? (typeof val === 'string' ? val : String(val)),
+    argv,
+  ] as [string, string, string, (string | number)[]]));
+
+
+describe('argvParse().opt()/variation', () => {
+  for (const [description, key, expected, argv] of BASE_TEST_CASES) {
+    test(description, () => {
+      const result = argvEnvParse(argv as string[]).opt(key);
+      result !== expected
+        && console.error(`${key} !== ${expected}: `, argv.join(' '));
+      expect(result).toBe(expected);
+    });
+  }
+});
+
+describe('argvParse().any()/variation (for flags)', () => {
+  for (const [description, flag, _expected, argv] of BASE_TEST_CASES) {
+    test(description, () => {
+      const isPresent = argvEnvParse(argv as string[]).any(flag) !== null;
+      isPresent !== true
+        && console.error(`"${flag}" !== ${true}: `, argv.join(' '));
+      expect(isPresent).toBe(true);
+
+      const isOtherPresent = argvEnvParse(argv as string[]).any(`other-${flag}`) !== null;
+      isOtherPresent
+        && console.error(`other-${flag} !== ${false}: `, argv.join(' '));
+      expect(isOtherPresent).toBe(false);
+
+      if (flag) {
+        const isOtherPresent2 = argvEnvParse(argv as string[]).any(`${flag}-other`) !== null;
+        isOtherPresent2
+          && console.error(`${flag}-other !== ${false}: `, argv.join(' '));
+        expect(isOtherPresent2).toBe(false);
+      }
+
+      const isAnotherPresent = argvEnvParse(argv as string[]).any(`another-${flag}-other`) !== null;
+      isAnotherPresent
+        && console.error(`another-${flag}-other !== ${false}: `, argv.join(' '));
+      expect(isAnotherPresent).toBe(false);
+    });
+  }
 });
 
 
-// @id::getArgvOption
-describe('argvParse().opt() - other/edge-ish cases', () => {
-  test('should handle empty key', () => {
-    expect(argvEnvParse(['node', 'script.js', '--ptag-id', 'test']).opt('')).toBe(null);
+describe('argvParseLoose()', () => {
+  test('swaps hyphens and underscores for key matching', () => {
+    expect(argvEnvParseLoose(['-i-test', 'test']).opt('i-test')).toBe('test');
+    expect(argvEnvParseLoose(['-i-test', 'test']).opt('i_test')).toBe('test');
+    expect(argvEnvParseLoose(['-i_test', 'test']).opt('i-test')).toBe('test');
   });
 
-  test('should handle space key', () => {
-    expect(argvEnvParse(['node', 'script.js', '--ptag-id', 'test']).opt(' ')).toBe(null);
-    expect(argvEnvParse(['node', 'script.js', '-- ', 'test']).opt(' ')).toBe(null);
+  test('matches keys case-insensitively', () => {
+    expect(argvEnvParseLoose(['--I', 'test']).opt('i')).toBe('test');
+    expect(argvEnvParseLoose(['-I', 'test']).opt('i')).toBe('test');
+    expect(argvEnvParseLoose(['--i', 'test']).opt('I')).toBe('test');
+    expect(argvEnvParseLoose(['-i', 'test']).opt('I')).toBe('test');
+    expect(argvEnvParseLoose(['--I', 'test']).opt('I')).toBe('test');
+    expect(argvEnvParseLoose(['-I', 'test']).opt('I')).toBe('test');
+    expect(argvEnvParseLoose(['--i', 'test']).opt('i')).toBe('test');
+    expect(argvEnvParseLoose(['-i', 'test']).opt('i')).toBe('test');
+  });
+});
+
+describe('argvEnvParse().opt()', () => {
+  describe('Key Matching and Edge Cases', () => {
+    test('is case-sensitive in strict mode', () => {
+      expect(argvEnvParse(['--I', 'test']).opt('i')).toBe(null);
+      expect(argvEnvParse(['-I', 'test']).opt('i')).toBe(null);
+      expect(argvEnvParse(['--i', 'test']).opt('I')).toBe(null);
+      expect(argvEnvParse(['-i', 'test']).opt('I')).toBe(null);
+      expect(argvEnvParse(['--I', 'test']).opt('I')).toBe('test');
+      expect(argvEnvParse(['-I', 'test']).opt('I')).toBe('test');
+      expect(argvEnvParse(['--i', 'test']).opt('i')).toBe('test');
+      expect(argvEnvParse(['-i', 'test']).opt('i')).toBe('test');
+    });
+
+    test('returns null for an empty key', () => {
+      expect(argvEnvParse(['--ptag-id', 'test']).opt('')).toBe(null);
+    });
+
+    test('returns null for a whitespace key', () => {
+      expect(argvEnvParse(['--ptag-id', 'test']).opt(' ')).toBe(null);
+      expect(argvEnvParse(['-- ', 'test']).opt(' ')).toBe(null);
+    });
+
+    test('returns null for a single hyphen key', () => {
+      expect(argvEnvParse(['--ptag-id', 'test']).opt('-')).toBe(null);
+      expect(argvEnvParse(['-id', 'test']).opt('-')).toBe(null);
+    });
+
+    test('handles extra leading hyphens in keys', () => {
+      expect(argvEnvParse(['---key', 'test']).opt('key')).toBe('test');
+    });
+
+    test('matches literal keys including their hyphens', () => {
+      // if literal key, only
+      expect(argvEnvParse(['--key', 'test']).opt('key')).toBe('test');
+      expect(argvEnvParse(['--key', 'test']).opt('-key')).toBe(null);
+      expect(argvEnvParse(['--key', 'test']).opt('---key')).toBe(null);
+      expect(argvEnvParse(['--key', 'test']).opt('--key')).toBe('test');
+      expect(argvEnvParse(['-key', 'test']).opt('-key')).toBe('test');
+      expect(argvEnvParse(['---key', 'test']).opt('---key')).toBe('test');
+    });
   });
 
-  test('should handle hyphan key', () => {
-    expect(argvEnvParse(['node', 'script.js', '--ptag-id', 'test']).opt('-')).toBe(null);
-    expect(argvEnvParse(['node', 'script.js', '-id', 'test']).opt('-')).toBe(null);
+  describe('Value Parsing and Quote Handling', () => {
+    test('preserves values with only whitespace', () => {
+      expect(argvEnvParse(['--ptag-id=" "']).opt('ptag-id')).toBe(' ');
+      expect(argvEnvParse(['--ptag-id', ' ']).opt('ptag-id')).toBe(' ');
+    });
+
+    test('preserves values with tab characters', () => {
+      expect(argvEnvParse(['--ptag-id="\t"']).opt('ptag-id')).toBe('\t');
+      expect(argvEnvParse(['--ptag-id', '"\t"']).opt('ptag-id')).toBe('\t');
+    });
+
+    test('preserves apostrophes inside non-matching quotes', () => {
+      expect(argvEnvParse(['./ok', '--key', `"but, srsly'"`]).opt('key')).toBe(`but, srsly'`);
+    });
+
+    test('strips matching quotes around values with apostrophes', () => {
+      expect(argvEnvParse(['./ok', `--key="shoudn't be an issue"`]).opt('key')).toBe(`shoudn't be an issue`);
+    });
+
+    test('handles complex nested and recursive quotes', () => {
+      expect(argvEnvParse(['./ok', '--key', `"''''"`]).opt('key')).toBe(``);
+      expect(argvEnvParse(['./ok', '--key', `'""""'`]).opt('key')).toBe(``);
+      expect(argvEnvParse(['./ok', '--key', `'""silly""'`]).opt('key')).toBe(`silly`);
+      expect(argvEnvParse(['./ok', '--key', `'\'"\'"\'"\'"'`]).opt('key')).toBe(`'"'"'"'"`);
+      expect(argvEnvParse(['./ok', '--key', `'::::'`]).opt('key')).toBe(`::::`);
+    });
+
+    test('preserves special characters in values', () => {
+      expect(argvEnvParse(['./ok', '--key=[o{k']).opt('key')).toBe('[o{k');
+      expect(argvEnvParse(['./ok', '--key', '[o{k']).opt('key')).toBe('[o{k');
+      expect(argvEnvParse(['./ok', '-key===<this/works>']).opt('key')).toBe('==<this/works>');
+      expect(argvEnvParse(['./ok', '-key', '<this/works>']).opt('key')).toBe('<this/works>');
+    });
+
+    test('preserves escaped characters in values', () => {
+      expect(argvEnvParse(['node', '--ptag-id="\a\b\c"']).opt('ptag-id')).toBe('\a\b\c');
+      expect(argvEnvParse(['node', '--ptag-id="\\a\\b\\c"']).opt('ptag-id'))
+        .toBe('\\a\\b\\c');
+      expect(argvEnvParse(['node', '--ptag-id=' + JSON.stringify('\'')]).opt('ptag-id')).toBe(`'`);
+      // shell/JSON behavior, not parser, but good to confirm
+      expect(argvEnvParse(['node', '--ptag-id=' + JSON.stringify('\f\n\r\t')]).opt('ptag-id'))
+        .toBe('\\f\\n\\r\\t');
+    });
+
+    test('passes through JSON string array values as-is', () => {
+      const argv = ['node', 'script.js'];
+      expect(argvEnvParse(argv.concat(`--ptag-id="${JSON.stringify(['a', 'b', 'c'])}"`)).opt('ptag-id'))
+        .toBe(JSON.stringify(['a', 'b', 'c']));
+      expect(argvEnvParse(argv.concat(`--ptag-id='${JSON.stringify(['a', 'b', 'c'])}'`)).opt('ptag-id'))
+        .toBe(JSON.stringify(['a', 'b', 'c']));
+      expect(argvEnvParse(argv.concat('--ptag-id', '["a","b","c"]')).opt('ptag-id'))
+        .toBe(JSON.stringify(['a', 'b', 'c']));
+    });
+
+    test('passes through JSON string array with spaces as-is', () => {
+      const argv = ['node', 'script.js'];
+      expect(argvEnvParse(argv.concat(`--ptag-id='${JSON.stringify([' a ', ' b', 'c '])}'`)).opt('ptag-id'))
+        .toBe(JSON.stringify([' a ', ' b', 'c ']));
+      // eslint-disable-next-line @stylistic/quotes
+      expect(argvEnvParse(argv.concat(`--ptag-id`, "[\" a \",\" b\",\"c \"]")).opt('ptag-id'))
+        .toBe(JSON.stringify([' a ', ' b', 'c ']));
+    });
+
+    test('passes through JSON object values as-is', () => {
+      const argv = ['node', 'script.js'];
+      const jsonObjStr = JSON.stringify({ a: 1, b: true, c: null });
+      const jsonObjSpaceStr = JSON.stringify({ a: 1, b: true, c: null, d: ' test ' });
+
+      expect(argvEnvParse(argv.concat(`--ptag-id="${jsonObjStr}"`)).opt('ptag-id'))
+        .toBe(jsonObjStr);
+      expect(argvEnvParse(argv.concat('--ptag-id', `"${jsonObjStr}"`)).opt('ptag-id'))
+        .toBe(jsonObjStr);
+      expect(argvEnvParse(argv.concat('--ptag-id', jsonObjStr)).opt('ptag-id'))
+        .toBe(jsonObjStr);
+      expect(argvEnvParse(argv.concat(`--ptag-id='${jsonObjSpaceStr}'`)).opt('ptag-id'))
+        .toBe(jsonObjSpaceStr);
+      expect(argvEnvParse(argv.concat('--ptag-id', jsonObjSpaceStr)).opt('ptag-id'))
+        .toBe(jsonObjSpaceStr);
+    });
   });
-
-  test('should handle casing', () => {
-    expect(argvEnvParse(['node', 'script.js', '--I', 'test']).opt('i')).toBe(null);
-    expect(argvEnvParse(['node', 'script.js', '-I', 'test']).opt('i')).toBe(null);
-    expect(argvEnvParse(['node', 'script.js', '--i', 'test']).opt('I')).toBe(null);
-    expect(argvEnvParse(['node', 'script.js', '-i', 'test']).opt('I')).toBe(null);
-    expect(argvEnvParse(['node', 'script.js', '--I', 'test']).opt('I')).toBe('test');
-    expect(argvEnvParse(['node', 'script.js', '-I', 'test']).opt('I')).toBe('test');
-    expect(argvEnvParse(['node', 'script.js', '--i', 'test']).opt('i')).toBe('test');
-    expect(argvEnvParse(['node', 'script.js', '-i', 'test']).opt('i')).toBe('test');
-  });
-
-  test('should handle empty space', () => {
-    expect(argvEnvParse(['node', 'script.js', '--ptag-id=" "']).opt('ptag-id')).toBe(' ');
-    expect(argvEnvParse(['node', 'script.js', '--ptag-id', ' ']).opt('ptag-id')).toBe(' ');
-  });
-
-  test(`there's no apostrophe in mismatching quotes`, () => {
-    expect(argvEnvParse(['./ok', '--key', `"but, srsly'"`]).opt('key')).toBe(`but, srsly'`);
-    expect(argvEnvParse(['./ok', `--key="shoudn't be an issue"`]).opt('key')).toBe(`shoudn't be an issue`);
-  });
-
-  test('somewhat un-reasonable single/double quote usage', () => {
-    expect(argvEnvParse(['./ok', '--key', `"''''"`]).opt('key')).toBe('');
-    expect(argvEnvParse(['./ok', '--key', `'""""'`]).opt('key')).toBe('');
-    expect(argvEnvParse(['./ok', '--key', `'""silly""'`]).opt('key')).toBe('silly');
-    expect(argvEnvParse(['./ok', '--key', `'\'"\'"\'"\'"'`]).opt('key')).toBe(`'"'"'"'"`);
-    expect(argvEnvParse(['./ok', '--key', `'::::'`]).opt('key')).toBe('::::');
-  });
-
-  test('but yo, why', () => {
-    expect(argvEnvParse(['./ok', '--key=[o{k']).opt('key')).toBe('[o{k');
-    expect(argvEnvParse(['./ok', '--key', '[o{k']).opt('key')).toBe('[o{k');
-    expect(argvEnvParse(['./ok', '-key===<this/works>']).opt('key')).toBe('==<this/works>');
-    expect(argvEnvParse(['./ok', '-key', '<this/works>']).opt('key')).toBe('<this/works>');
-  });
-
-  test('should handle tab', () => {
-    expect(argvEnvParse(['node', 'script.js', '--ptag-id="\t"']).opt('ptag-id')).toBe('\t');
-    expect(argvEnvParse(['node', 'script.js', '--ptag-id', '"\t"']).opt('ptag-id')).toBe('\t');
-  });
-
-  test('escaped chars', () => {
-    expect(argvEnvParse(['node', '--ptag-id="\a\b\c"']).opt('ptag-id')).toBe('\a\b\c');
-    expect(argvEnvParse(['node', '--ptag-id="\\a\\b\\c"']).opt('ptag-id'))
-      .toBe('\\a\\b\\c');
-    expect(argvEnvParse(['node', '--ptag-id=' + JSON.stringify('\'')]).opt('ptag-id')).toBe(`'`);
-    // well, meh, more of a json issue
-    expect(argvEnvParse(['node', '--ptag-id=' + JSON.stringify('\f\n\r\t')]).opt('ptag-id'))
-      .toBe('\\f\\n\\r\\t');
-  });
-
-  test('json - string[]', () => {
-    const argv = ['node', 'script.js'];
-    expect(argvEnvParse(argv.concat( `--ptag-id="${JSON.stringify(['a', 'b', 'c'])}"`)).opt('ptag-id'))
-      .toBe(JSON.stringify(['a', 'b', 'c']));
-    expect(argvEnvParse(argv.concat( `--ptag-id='${JSON.stringify(['a', 'b', 'c'])}'`)).opt('ptag-id'))
-      .toBe(JSON.stringify(['a', 'b', 'c']));
-    expect(argvEnvParse(argv.concat( '--ptag-id', '["a","b","c"]')).opt('ptag-id'))
-      .toBe(JSON.stringify(['a', 'b', 'c']));
-  });
-
-  test('json - string[] - with space', () => {
-    const argv = ['node', 'script.js'];
-    expect(argvEnvParse(argv.concat( `--ptag-id='${JSON.stringify([' a ', ' b', 'c '])}'`)).opt('ptag-id'))
-      .toBe(JSON.stringify([' a ', ' b', 'c ']));
-    // eslint-disable-next-line @stylistic/quotes
-    expect(argvEnvParse(argv.concat( `--ptag-id`, "[\" a \",\" b\",\"c \"]")).opt('ptag-id'))
-      .toBe(JSON.stringify([' a ', ' b', 'c ']));
-  });
-
-  test('json - object', () => {
-    const argv = ['node', 'script.js'];
-    const jsonObjStr = JSON.stringify({ a: 1, b: true, c: null });
-    const jsonObjSpaceStr = JSON.stringify({ a: 1, b: true, c: null, d: ' test ' });
-
-    expect(argvEnvParse(argv.concat(`--ptag-id="${jsonObjStr}"`)).opt('ptag-id'))
-      .toBe(jsonObjStr);
-    expect(argvEnvParse(argv.concat('--ptag-id', `"${jsonObjStr}"`)).opt('ptag-id'))
-      .toBe(jsonObjStr);
-    expect(argvEnvParse(argv.concat('--ptag-id', jsonObjStr)).opt('ptag-id'))
-      .toBe(jsonObjStr);
-    expect(argvEnvParse(argv.concat(`--ptag-id='${jsonObjSpaceStr}'`)).opt('ptag-id'))
-      .toBe(jsonObjSpaceStr);
-    expect(argvEnvParse(argv.concat('--ptag-id', jsonObjSpaceStr)).opt('ptag-id'))
-      .toBe(jsonObjSpaceStr);
-  });
-
-  test('phat finger extra hyphan key', () => {
-    expect(argvEnvParse(['node', 'script.js', '---key', 'test']).opt('key')).toBe('test');
-  });
-
-  test('literal key with hyphens (-key)', () => {
-    // if literal key, only
-    expect(argvEnvParse(['node', 'script.js', '--key', 'test']).opt('key')).toBe('test');
-    expect(argvEnvParse(['node', 'script.js', '--key', 'test']).opt('-key')).toBe(null);
-    expect(argvEnvParse(['node', 'script.js', '--key', 'test']).opt('---key')).toBe(null);
-    expect(argvEnvParse(['node', 'script.js', '--key', 'test']).opt('--key')).toBe('test');
-    expect(argvEnvParse(['node', 'script.js', '-key', 'test']).opt('-key')).toBe('test');
-    expect(argvEnvParse(['node', 'script.js', '---key', 'test']).opt('---key')).toBe('test');
-  });
-
-
 });
 
 
-// @id::hasArgvFlags
-describe('argvParse().any() - other/edge-ish cases for flag presence', () => {
-  test('should return true if any flag in array is present', () => {
-    expect(argvEnvParse(['node', 'script.js', '--flag']).any(['f', 'flag']) !== null).toBe(true);
+describe('argvEnvParse().flag()', () => {
+  test('returns true for a present long-form flag', () => {
+    expect(argvEnvParse(['--verbose']).flag('verbose')).toBe(true);
   });
 
-  test('should return true if any flag in array is present', () => {
-    expect(argvEnvParse(['node', 'script.js', '--flag']).any(['flag', 'f']) !== null).toBe(true);
+  test('returns true for a present short-form flag', () => {
+    expect(argvEnvParse(['-v']).flag('v')).toBe(true);
   });
 
-  test('should return false if no flag in array is present', () => {
-    expect(argvEnvParse(['node', 'script.js', '--flag']).any(['a', 'f']) !== null).toBe(false);
+  test('returns null for a non-existent flag', () => {
+    expect(argvEnvParse(['--other']).flag('verbose')).toBe(null);
   });
 
-  test('should return true if the flag exists with double dash', () => {
-    expect(argvEnvParse(['node', 'script.js', '--flag']).any('flag') !== null).toBe(true);
+  test('does not consume the following argument', () => {
+    const parser = argvEnvParse(['--verbose', 'file.txt']);
+    expect(parser.flag('verbose')).toBe(true);
+    expect(parser.pos()).toEqual(['file.txt']);
   });
 
-  test('should return true if the flag exists with single dash', () => {
-    expect(argvEnvParse(['node', 'script.js', '-flag']).any('flag') !== null).toBe(true);
+  test('is case-sensitive in strict mode', () => {
+    expect(argvEnvParse(['--VERBOSE']).flag('verbose')).toBe(null);
+    expect(argvEnvParse(['--VERBOSE']).flag('VERBOSE')).toBe(true);
   });
-
-  test('should return true if the flag exists with a value', () => {
-    expect(argvEnvParse(['node', 'script.js', '--flag=value']).any('flag') !== null).toBe(true);
-  });
-
-  test('should return true if the flag exists with a value with space', () => {
-    expect(argvEnvParse(['node', 'script.js', '--flag', 'value']).any('flag') !== null).toBe(true);
-  });
-
-  test('should return true if the flag exists with a value with single dash', () => {
-    expect(argvEnvParse(['node', 'script.js', '-flag=value']).any('flag') !== null).toBe(true);
-  });
-
-  test('should return true if the flag exists with a value with space with single dash', () => {
-    expect(argvEnvParse(['node', 'script.js', '-flag', 'value']).any('flag') !== null).toBe(true);
-  });
-
-  test('should return false if the flag does not exist', () => {
-    expect(argvEnvParse(['node', 'script.js', '--other-flag']).any('flag') !== null).toBe(false);
-  });
-
-  test('should return false if argv is empty', () => {
-    expect(argvEnvParse([]).any('flag') !== null).toBe(false);
-  });
-
-  test('should handle case sensitivity (new behavior)', () => {
-    expect(argvEnvParse(['node', 'script.js', '--FLAG']).any('flag') !== null).toBe(false);
-    expect(argvEnvParse(['node', 'script.js', '--FLAG']).any('FLAG') !== null).toBe(true);
-  });
-
-  test('should handle case sensitivity single dash (new behavior)', () => {
-    expect(argvEnvParse(['node', 'script.js', '-FLAG']).any('flag') !== null).toBe(false);
-    expect(argvEnvParse(['node', 'script.js', '-FLAG']).any('FLAG') !== null).toBe(true);
-  });
-
-  test('should handle case sensitivity with value (new behavior)', () => {
-    expect(argvEnvParse(['node', 'script.js', '--FLAG=value']).any('flag') !== null).toBe(false);
-    expect(argvEnvParse(['node', 'script.js', '--FLAG=value']).any('FLAG') !== null).toBe(true);
-  });
-
-  test('should return true when the flag is at the beginning', () => {
-    expect(argvEnvParse(['--flag', 'node', 'script.js']).any('flag') !== null).toBe(true);
-  });
-
-  test('should return true when the single dash flag is at the beginning', () => {
-    expect(argvEnvParse(['-flag', 'node', 'script.js']).any('flag') !== null).toBe(true);
-  });
-
-
 });
 
 
-// @id::getArgv
-describe('argvParse().any()', () => {
-  test('should return an true for empty string for a flag without a value', () => {
-    expect(argvEnvParse(['node', 'script.js', '--flag']).any('flag')).toBe(true);
+describe('argvEnvParse().any() - Flag Presence', () => {
+  test('returns true if any flag in an array is present (first match)', () => {
+    expect(argvEnvParse(['--flag']).any(['f', 'flag'])).toBe(true);
   });
 
-  test('should return the value for a flag with a value', () => {
-    expect(argvEnvParse(['node', 'script.js', '--flag=value']).any('flag')).toBe('value');
+  test('returns true if any flag in an array is present (second match)', () => {
+    expect(argvEnvParse(['--flag']).any(['flag', 'f'])).toBe(true);
   });
 
-  test('should return the value for a flag with a value space', () => {
-    expect(argvEnvParse(['node', 'script.js', '--flag', 'value']).any('flag')).toBe('value');
+  test('returns null if no flag in an array is present', () => {
+    expect(argvEnvParse(['--flag']).any(['a', 'f'])).toBe(null);
   });
 
-  test('should return null if the flag does not exist', () => {
-    expect(argvEnvParse(['node', 'script.js', '--other-flag']).any('flag')).toBe(null);
+  test('returns true for a double-dashed flag', () => {
+    expect(argvEnvParse(['--flag']).any('flag')).toBe(true);
   });
 
-  test('should return null if argv is empty', () => {
+  test('returns true for a single-dashed flag', () => {
+    expect(argvEnvParse(['-flag']).any('flag')).toBe(true);
+  });
+
+  test('returns value for a flag with an assigned value', () => {
+    expect(argvEnvParse(['--flag=value']).any('flag')).toBe('value');
+  });
+
+  test('returns value for a flag with a subsequent value', () => {
+    expect(argvEnvParse(['--flag', 'value']).any('flag')).toBe('value');
+  });
+
+  test('returns value for a single-dashed flag with an assigned value', () => {
+    expect(argvEnvParse(['-flag=value']).any('flag')).toBe('value');
+  });
+
+  test('returns value for a single-dashed flag with a subsequent value', () => {
+    expect(argvEnvParse(['-flag', 'value']).any('flag')).toBe('value');
+  });
+
+  test('returns null if the flag does not exist', () => {
+    expect(argvEnvParse(['--other-flag']).any('flag')).toBe(null);
+  });
+
+  test('returns null if argv is empty', () => {
     expect(argvEnvParse([]).any('flag')).toBe(null);
   });
 
-  test('should handle case sensitivity (new behavior)', () => {
-    expect(argvEnvParse(['node', 'script.js', '--FLAG=value']).any('flag')).toBe(null);
-    expect(argvEnvParse(['node', 'script.js', '--FLAG=value']).any('FLAG')).toBe('value');
+  test('is case-sensitive for flags', () => {
+    expect(argvEnvParse(['--FLAG']).any('flag')).toBe(null);
+    expect(argvEnvParse(['--FLAG']).any('FLAG')).toBe(true);
   });
 
-  test('should handle case sensitivity and no value (new behavior)', () => {
-    expect(argvEnvParse(['node', 'script.js', '--FLAG']).any('flag')).toBe(null);
-    expect(argvEnvParse(['node', 'script.js', '--FLAG']).any('FLAG')).toBe(true);
+  test('is case-sensitive for single-dashed flags', () => {
+    expect(argvEnvParse(['-FLAG']).any('flag')).toBe(null);
+    expect(argvEnvParse(['-FLAG']).any('FLAG')).toBe(true);
   });
 
-  test('should return the value even if the flag is at the beginning', () => {
-    expect(argvEnvParse(['--flag', 'value', 'node', 'script.js']).any('flag')).toBe('value');
+  test('is case-sensitive for flags with values', () => {
+    expect(argvEnvParse(['--FLAG=value']).any('flag')).toBe(null);
+    expect(argvEnvParse(['--FLAG=value']).any('FLAG')).toBe('value');
   });
 
-  test('should handle quoted values', () => {
-    expect(argvEnvParse(['node', 'script.js', '--flag="quoted value"']).any('flag')).toBe('quoted value');
+  test('finds a option at the beginning of argv', () => {
+    expect(argvEnvParse(['--flag', 'node', 'script.js']).any('flag')).toBe('node');
   });
 
-  test('should handle quoted values with space', () => {
+  test('finds a single-dashed option at the beginning of argv', () => {
+    expect(argvEnvParse(['-flag', 'node', 'script.js']).any('flag')).toBe('node');
+  });
+});
 
-    expect(argvEnvParse(['node', 'script.js', '--flag', "'quoted value'"]).any('flag')).toBe('quoted value');
+
+describe('argvEnvParse().any() - Value Retrieval and Fallbacks', () => {
+  test('returns true for a flag without a value', () => {
+    expect(argvEnvParse(['--flag']).any('flag')).toBe(true);
   });
 
-  test('should handle empty quoted values', () => {
+  test('returns the value for a flag with an assigned value', () => {
+    expect(argvEnvParse(['--flag=value']).any('flag')).toBe('value');
+  });
+
+  test('returns the value for a flag with a subsequent value', () => {
+    expect(argvEnvParse(['--flag', 'value']).any('flag')).toBe('value');
+  });
+
+  test('handles quoted values correctly', () => {
+    expect(argvEnvParse(['--flag="quoted value"']).any('flag')).toBe('quoted value');
+    // eslint-disable-next-line @stylistic/quotes
+    expect(argvEnvParse(['--flag', "'quoted value'"]).any('flag')).toBe('quoted value');
+  });
+
+  test('handles empty quoted values', () => {
     const argv = ['node', 'script.js'];
-
+    // eslint-disable-next-line @stylistic/quotes
     expect(argvEnvParse(argv.concat("--flag=''")).any('flag')).toBe('');
     expect(argvEnvParse(argv.concat('--flag=""')).any('flag')).toBe('');
-
+    // eslint-disable-next-line @stylistic/quotes
     expect(argvEnvParse(["--flag=''", ...argv]).any('flag')).toBe('');
     expect(argvEnvParse(['--flag=""', ...argv]).any('flag')).toBe('');
   });
 
-  test('should handle flags that share names', () => {
+  test('correctly parses a flag that is a substring of another flag', () => {
     let argv = ['node', 'script.js', '--flag-o', '--flag'];
     expect(argvEnvParse(argv).any('flag')).toBe(true);
     argv = ['node', 'script.js', '--flag', '--flag-o'];
@@ -290,227 +530,94 @@ describe('argvParse().any()', () => {
     expect(argvEnvParse(argv).any('flag')).toBe('yes');
     argv = ['node', 'script.js', '--flag-o', '--flag=yes'];
     expect(argvEnvParse(argv).any('flag')).toBe('yes');
+  });
 
+  test('falls back to environment variables', () => {
+    const procEnv = { MY_KEY: 'env_value' };
+    expect(argvEnvParse([], procEnv).any('MY_KEY')).toBe('env_value');
+  });
 
+  test('falls back to globalThis', () => {
+    const gthis = { MY_KEY: 'gthis_value' } as never as typeof globalThis;
+    expect(argvEnvParse([], {}, gthis).any('MY_KEY')).toBe('gthis_value');
+  });
+
+  test('falls back to default value', () => {
+    expect(argvEnvParse([]).any('key', 'default_value')).toBe('default_value');
+  });
+
+  test('prioritizes argv > env > global > default', () => {
+    const argv = ['--key=argv_val'];
+    const procEnv = { key: 'env_val' };
+    const gthis = { key: 'gthis_val' } as never as typeof globalThis;
+    expect(argvEnvParse(argv, procEnv, gthis).any('key', 'default_val')).toBe('argv_val');
+    expect(argvEnvParse([], procEnv, gthis).any('key', 'default_val')).toBe('env_val');
+    expect(argvEnvParse([], {}, gthis).any('key', 'default_val')).toBe('gthis_val');
   });
 });
 
 
-// @id::getArgvPositional - primary function signature
-describe('argvParse().pos() - primary function signature', () => {
-  describe('and no positional arguments are present', () => {
-    test('should return an empty array for an empty array', () => {
+describe('argvEnvParse().pos()', () => {
+  describe('Initial State (No Arguments Parsed)', () => {
+    test('returns an empty array when no positionals are present', () => {
       expect(argvEnvParse([]).pos()).toEqual([]);
-    });
-
-    test('should return an empty array for an array with only the executable', () => {
       expect(argvEnvParse(['node']).pos()).toEqual([]);
-    });
-
-    test('should return an empty array for an array with only the executable and script', () => {
       expect(argvEnvParse(['node', 'script.js']).pos()).toEqual([]);
     });
 
-    test('should return an empty array when only flags are present', () => {
-      const argv = ['node', 'script.js', '--verbose', '-d', '--force'];
-      expect(argvEnvParse(argv).pos()).toEqual([]);
-      const parser = argvEnvParse(argv);
-      parser.flag('verbose');
-      parser.flag('d');
-      parser.flag('force');
-      expect(parser.pos()).toEqual([]);
+    test('returns an empty array when only flags/options are present', () => {
+      expect(argvEnvParse(['node', 'script.js', '--verbose', '-d', '--force']).pos()).toEqual([]);
+      expect(argvEnvParse(['node', 'script.js', '--output=file.txt', '-l', '10']).pos()).toEqual(['10']);
+      expect(argvEnvParse(['node', 'script.js', '--output', '/path/to/file']).pos()).toEqual(['/path/to/file']);
     });
 
-    test('should return an empty array when only options with values are present', () => {
-      const argv = ['node', 'script.js', '--output=file.txt', '-l', '10'];
-      expect(argvEnvParse(argv).pos()).toEqual([]);
-      const parser = argvEnvParse(argv);
-      parser.opt('output');
-      parser.opt('l');
-      expect(parser.pos()).toEqual([]);
+    test('finds a single positional argument', () => {
+      expect(argvEnvParse(['node', 'script.js', 'source.txt']).pos()).toEqual(['source.txt']);
     });
 
-    test('should return an empty array if the last argument is a value for an option', () => {
-      const argv = ['node', 'script.js', '--output', '/path/to/file'];
-      expect(argvEnvParse(argv).pos()).toEqual([]);
-      const parser = argvEnvParse(argv);
-      parser.opt('output');
-      expect(parser.pos()).toEqual([]);
-    });
-  });
-
-
-  describe('and basic positional arguments are present', () => {
-    test('should find a single positional argument', () => {
-      const argv = ['node', 'script.js', 'source.txt'];
-      expect(argvEnvParse(argv).pos()).toEqual(['source.txt']);
+    test('finds multiple positional arguments', () => {
+      expect(argvEnvParse(['node', 'script.js', 'source.txt', 'dest.txt']).pos())
+        .toEqual(['source.txt', 'dest.txt']);
     });
 
-    test('should find multiple positional arguments', () => {
-      const argv = ['node', 'script.js', 'source.txt', 'dest.txt'];
-      expect(argvEnvParse(argv).pos()).toEqual(['source.txt', 'dest.txt']);
-    });
-
-    test('should find positionals mixed with options', () => {
+    test('finds positionals mixed with unparsed options', () => {
       const argv = ['node', 'script.js', 'copy', '--verbose', 'src.zip', '--output', 'dest.zip', 'backup'];
-      expect(argvEnvParse(argv).pos()).toEqual(['copy', 'backup']);
-      const parser = argvEnvParse(argv);
-      parser.opt('verbose'); // consumes src.zip
-      parser.opt('output'); // consumes dest.zip
-      expect(parser.pos()).toEqual(['copy', 'backup']);
+      // before parsing, anything not an option's value is positional
+      expect(argvEnvParse(argv).pos()).toEqual(['copy', 'src.zip', 'dest.zip', 'backup']);
+      const ctx = argvEnvParse(argv);
+      expect(ctx.opt('output')).toEqual('dest.zip');
+      expect(ctx.pos()).toEqual(['copy', 'src.zip', 'backup']);
     });
 
-    test('should find a positional argument placed at the beginning', () => {
-      const argv = ['node', 'script.js', 'positional1', '--flag', '--opt=1'];
-      expect(argvEnvParse(argv).pos()).toEqual(['positional1']);
-      const parser = argvEnvParse(argv);
-      parser.flag('flag');
-      parser.opt('opt');
-      expect(parser.pos()).toEqual(['positional1']);
-    });
-
-    test('should find a positional argument placed in the middle', () => {
-      const argv = ['node', 'script.js', '--opt=val', 'positional1', '-f'];
-      expect(argvEnvParse(argv).pos()).toEqual(['positional1']);
-      const parser = argvEnvParse(argv);
-      parser.opt('opt');
-      parser.flag('f');
-      expect(parser.pos()).toEqual(['positional1']);
-    });
-
-  });
-
-
-  describe('and the option (--) terminator is used', () => {
-    test('should treat all arguments after -- as positional', () => {
-      const argv = ['node', 'script.js', '--flag', '--', 'pos1', '--not-a-flag', '-n'];
-      const parser = argvEnvParse(argv);
-      parser.flag('flag');
-      expect(parser.pos()).toEqual(['pos1', '--not-a-flag', '-n']);
-    });
-
-    test('should find positionals both before and after --', () => {
-      const argv = ['node', 'script.js', 'pos1', '--opt=val', '--', 'pos2', '-f'];
-      const parser = argvEnvParse(argv);
-      parser.opt('opt');
-      expect(parser.pos()).toEqual(['pos1', 'pos2', '-f']);
-    });
-
-    test('should return empty array if -- is the only argument after the script', () => {
-      expect(argvEnvParse(['node', 'script.js', '--']).pos()).toEqual([]);
-    });
-
-    test('should handle a second -- as a positional argument', () => {
-      const argv = ['node', 'script.js', '--', '--'];
-      expect(argvEnvParse(argv).pos()).toEqual(['--']);
-    });
-
-    test('should correctly consume flags', () => {
-      const argv = ['node', 'script.js', '--flag', 'value', 'pos1'];
-      const p = argvEnvParse(argv);
-      expect(p.pos()).toEqual(['pos1']);
-      const c = argvEnvParse(argv);
-      c.flag('flag'); // consuime
-      expect(c.pos()).toEqual(['value', 'pos1']);
+    test('finds positionals at the beginning, middle, and end', () => {
+      expect(argvEnvParse(['node', 'script.js', 'pos1', '--flag', '--opt=1']).pos()).toEqual(['pos1']);
+      expect(argvEnvParse(['node', 'script.js', '--opt=val', 'pos2', '-f']).pos()).toEqual(['pos2']);
     });
   });
 
-
-  describe('with different executables', () => {
-    test('should correctly slice argv for "node"', () => {
-      const argv = ['node', 'script.js', 'positional'];
-      expect(argvEnvParse(argv).pos()).toEqual(['positional']);
-    });
-
-    test('should correctly slice argv for "bun"', () => {
-      const argv = ['bun', 'run', 'script.ts', '--flag', 'value', 'pos1'];
-      const parser = argvEnvParse(argv);
-      parser.opt('flag');
-      expect(parser.pos()).toEqual(['pos1']);
-    });
-
-    test('should handle "bun run" as part of the command', () => {
-      const argv = ['bun', 'run', 'script.ts', 'positional'];
-      expect(argvEnvParse(argv).pos()).toEqual(['positional']);
-    });
-
-    test('should slice only one element for an unknown executable', () => {
-      const argv = ['./my-cli', 'arg1', 'arg2'];
-      expect(argvEnvParse(argv).pos()).toEqual(['arg1', 'arg2']);
-    });
-  });
-
-
-  describe('with edge-case arguments', () => {
-    test('should treat a single dash (-) as a positional argument', () => {
-      const argv = ['node', 'script.js', 'in.txt', '-', 'out.txt'];
-      expect(argvEnvParse(argv).pos()).toEqual(['in.txt', '-', 'out.txt']);
-    });
-
-    test('should handle numeric-looking strings as positionals', () => {
-      const argv = ['node', 'script.js', '123', '456.7', '-99'];
-      expect(argvEnvParse(argv).pos()).toEqual(['123', '456.7', '-99']);
-    });
-
-    test('should handle file paths as positionals', () => {
-      const argv = ['node', 'script.js', '/path/to/source', './dest.txt'];
-      expect(argvEnvParse(argv).pos()).toEqual(['/path/to/source', './dest.txt']);
-    });
-
-    test('should handle a URL as a positional argument', () => {
-      const argv = ['node', 'script.js', 'https://example.com'];
-      expect(argvEnvParse(argv).pos()).toEqual(['https://example.com']);
-    });
-
-    test('should handle positionals that contain hyphens', () => {
-      const argv = ['node', 'script.js', 'some-value', 'another-value'];
-      expect(argvEnvParse(argv).pos()).toEqual(['some-value', 'another-value']);
-    });
-
-    test('should handle a single positional that contains spaces (pre-parsed by shell)', () => {
-      const argv = ['node', 'script.js', 'a value with spaces'];
-      expect(argvEnvParse(argv).pos()).toEqual(['a value with spaces']);
-    });
-  });
-});
-
-
-// @id::getArgvPositional - overloaded signature
-describe('argvParse().pos() - after parsing known flags', () => {
-  describe('when called after parsing known flags', () => {
-    test('should treat known flags as booleans that do not consume the next argument', () => {
-      const knownFlags = ['verbose', 'force'];
-      const argv = ['node', 'script.js', '--verbose', 'file.txt', '--force', 'another.txt'];
-      const parser = argvEnvParse(argv);
-      for (const flag of knownFlags) {
-        parser.flag(flag);
-      }
+  describe('State after Parsing Arguments', () => {
+    test('excludes known flags but not their subsequent arguments', () => {
+      const parser = argvEnvParse(['node', 'script.js', '--verbose', 'file.txt', '--force', 'another.txt']);
+      parser.flag('verbose');
+      parser.flag('force');
       expect(parser.pos()).toEqual(['file.txt', 'another.txt']);
     });
 
-    test('should handle both long and short versions of known flags', () => {
-      const knownFlags = ['v', 'f'];
-      const argv = ['node', 'script.js', '-v', 'pos1', '-f', 'pos2'];
-      const parser = argvEnvParse(argv);
-      for (const flag of knownFlags) {
-        parser.flag(flag);
-      }
+    test('handles both long and short versions of known flags', () => {
+      const parser = argvEnvParse(['node', 'script.js', '-v', 'pos1', '-f', 'pos2']);
+      parser.flag('v');
+      parser.flag('f');
       expect(parser.pos()).toEqual(['pos1', 'pos2']);
     });
 
-    test('should treat unknown flags as options that consume the next argument', () => {
-      const knownFlags = ['verbose'];
-      // --output is unknown, so it will be treated as an option consuming 'file.txt' when we get positionals
-      const argv = ['node', 'script.js', '--output', 'file.txt', '--verbose', 'positional'];
-      const parser = argvEnvParse(argv);
-      parser.flag('verbose'); // consumes --verbose
-      parser.opt('output'); // consumes --output and file.txt
+    test('excludes known options and their values', () => {
+      const parser = argvEnvParse(['node', 'script.js', '--output', 'file.txt', '--verbose', 'positional']);
+      parser.flag('verbose');
+      parser.opt('output');
       expect(parser.pos()).toEqual(['positional']);
     });
 
-    test('should correctly identify positionals among a mix of known flags/unknown options', () => {
-      const knownFlags = ['m', 'fast'];
-      // -m and --fast are known flags. --mode is an unknown option consuming 'fuzz'
+    test('identifies positionals among a mix of parsed flags and options', () => {
       const argv = ['./exe', '-m', '--mode', 'fuzz', '--fast', 'input.jpg', 'output.jpg'];
       const parser = argvEnvParse(argv);
       parser.flag('m');
@@ -519,14 +626,111 @@ describe('argvParse().pos() - after parsing known flags', () => {
       expect(parser.pos()).toEqual(['input.jpg', 'output.jpg']);
     });
 
-    test('should return empty array if only known flags and options are present', () => {
-      const knownFlags = ['v', 'force'];
-      const argv = ['node', 'script.js', '--output', 'file.txt', '-v', '--force'];
-      const parser = argvEnvParse(argv);
+    test('returns empty array if only known flags and options are present', () => {
+      const parser = argvEnvParse(['node', 'script.js', '--output', 'file.txt', '-v', '--force']);
       parser.flag('v');
       parser.flag('force');
       parser.opt('output');
       expect(parser.pos()).toEqual([]);
     });
+
+    test('differentiates between parsing a flag vs an option of the same name', () => {
+      const argv = ['node', 'script.js', '--flag', 'value', 'pos1'];
+      const flagParser = argvEnvParse(argv);
+      flagParser.flag('flag');
+      expect(flagParser.pos()).toEqual(['value', 'pos1']);
+
+      const optParser = argvEnvParse(argv);
+      optParser.opt('flag');
+      expect(optParser.pos()).toEqual(['pos1']);
+    });
+  });
+
+  describe('with -- Terminator', () => {
+    test('treats all arguments after -- as positional', () => {
+      const parser = argvEnvParse(['node', 'script.js', '--flag', '--', 'pos1', '--not-a-flag', '-n']);
+      parser.flag('flag');
+      expect(parser.pos()).toEqual(['pos1', '--not-a-flag', '-n']);
+    });
+
+    test('finds positionals both before and after --', () => {
+      const parser = argvEnvParse(['node', 'script.js', 'pos1', '--opt=val', '--', 'pos2', '-f']);
+      parser.opt('opt');
+      expect(parser.pos()).toEqual(['pos1', 'pos2', '-f']);
+    });
+
+    test('returns empty array if -- is the only argument after the script', () => {
+      expect(argvEnvParse(['node', 'script.js', '--']).pos()).toEqual([]);
+    });
+
+    test('handles a second -- as a positional argument', () => {
+      expect(argvEnvParse(['node', 'script.js', '--', '--']).pos()).toEqual(['--']);
+    });
+  });
+
+  describe('with Edge-Case Positional Values', () => {
+    test('treats a single dash (-) as a positional argument', () => {
+      expect(argvEnvParse(['test', '-', 'out.txt']).pos()).toEqual(['-', 'out.txt']);
+    });
+
+    test('handles numeric-looking strings as positionals', () => {
+      expect(argvEnvParse(['test', '123', '456.7', '-99']).pos()).toEqual(['123', '456.7', '-99']);
+    });
+
+    test('handles file paths as positionals', () => {
+      expect(argvEnvParse(['/path/to/source', './dest.txt']).pos()).toEqual(['./dest.txt']);
+    });
+
+    test('handles a URL as a positional argument', () => {
+      expect(argvEnvParse(['curl', 'https://example.com']).pos()).toEqual(['https://example.com']);
+    });
+
+    test('handles positionals that contain hyphens', () => {
+      expect(argvEnvParse(['some-value', 'another-value']).pos()).toEqual(['another-value']);
+    });
+
+    test('handles a single positional that contains spaces (pre-parsed by shell)', () => {
+      expect(argvEnvParse(['run', 'a value with spaces']).pos()).toEqual(['a value with spaces']);
+    });
+  });
+});
+
+describe('argvEnvParse().cmd()', () => {
+  test('identifies command for "node"', () => {
+    expect(argvEnvParse(['node', 'script.js', 'positional']).cmd()).toEqual(['node', 'script.js']);
+  });
+
+  test('identifies command for "bun run"', () => {
+    const argv = ['bun', 'run', 'script.ts', '--flag', 'value', 'pos1'];
+    expect(argvEnvParse(argv).cmd()).toEqual(['bun', 'run', 'script.ts']);
+  });
+
+  test('identifies command for an unknown/direct executable', () => {
+    expect(argvEnvParse(['./my-cli', 'arg1', 'arg2']).cmd()).toEqual(['./my-cli']);
+  });
+
+  test('returns an empty array if the first argument is a flag', () => {
+    expect(argvEnvParse(['--flag', 'arg1']).cmd()).toEqual([]);
+  });
+});
+
+describe('argvEnvParse().env()', () => {
+  const procEnv = { 'FROM_PROC': 'proc_val', 'MY-VAR': 'val' };
+  const gthis = { FROM_GTHIS: 'gthis_val' } as never as typeof globalThis;
+
+  test('retrieves a value from procEnv', () => {
+    expect(argvEnvParse([], procEnv, gthis).env('FROM_PROC')).toBe('proc_val');
+  });
+
+  test('retrieves a value from globalThis as a fallback', () => {
+    expect(argvEnvParse([], procEnv, gthis).env('FROM_GTHIS')).toBe('gthis_val');
+  });
+
+  test('returns null if the key is not found anywhere', () => {
+    expect(argvEnvParse([], procEnv, gthis).env('NOT_FOUND')).toBe(null);
+  });
+
+  test('handles loose matching of hyphens and underscores when enabled', () => {
+    expect(argvEnvParseLoose([], procEnv).env('MY_VAR')).toBe('val');
   });
 });

@@ -14,8 +14,8 @@ export const ARGV: string[] = /* @__PURE__ */ (() =>
       ? scriptArgs
       : []
     : ((globalThis as never)?.['Deno']
-    // if --allow-all is used, no args (like --allow-env), use default
-    // @ts-expect-error deno uses 'args' rather than 'argv'
+      // if --allow-all is used, no args (like --allow-env), use default
+      // @ts-expect-error deno uses 'args' rather than 'argv'
       ? (process['args']?.length ? process['args'] : process['argv'])
       : process['argv']
     ) ?? []
@@ -43,27 +43,53 @@ export const PROC_ENV = /* @__PURE__ */ (() => typeof process === 'undefined'
 )();
 
 
-export const argvEnvParse = (argv = ARGV, procEnv = PROC_ENV, gthis = GLOBAL_THIS as never, loose = false) => {
+/**
+ * checks for presence of key (flags) in argv
+ * @example --example -flag
+ * @param  {string | string[]} keys - argv key/id (--key, -key)
+ * @param  {string[]} [argv=ARGV]   - command-line argv
+ * @return {boolean}
+ */
+export const hasArgv = (keys: string | string[], argv = ARGV): boolean => !argv?.length
+  ? false
+  : !!([keys].flat().filter(Boolean).find(key =>
+    (new RegExp(`(^|[^\\S])(?:--|-)${key}(=|\\s|$)`, 'i')).test(argv.join(' '))));
+
+
+// normilizes/remove matching quotes
+const quoteNorm = (val: string): string => ((/^['"]/).test(val)
+  ? val?.replace(/^(['"])(.*)(['"])$/, (m, q1, body, q2) => q1 === q2 ? quoteNorm(body) : m)
+  : val);
+
+// if flag value
+const isFlag = (val?: string) => (/^-+\w/).test(val ?? '') && Number.isNaN(Number(val));
+
+// if option terminator (--)
+const isTerm = (val?: string) => val?.trim() === '--';
+
+const toArr = (key: string | string[], loose = false, _keys = (Array.isArray(key) ? key : [key])) =>
+  (loose
+    // if loose swap '-' and '_' in keys
+    ? _keys.map(item =>
+      [
+        item,
+        item.replaceAll(...((item.includes('_') ? ['_', '-'] : ['-', '_']) as [string, string])),
+      ]).flat()
+    : _keys);
+
+
+export const argvEnvParse = (argv = ARGV, procEnv = PROC_ENV, gthis = GLOBAL_THIS, loose = false) => {
   const cur = [...argv].map(String);
 
-  const toArr = (key: string | string[], keys = (Array.isArray(key) ? key : [key])) =>
-    (loose ? keys.map(item =>
-      // if loose swap '-' and '_' in keys
-      [item, item.replaceAll(...((item.includes('_') ? ['_', '-'] : ['-', '_']) as [string, string]))]).flat()
-    : keys);
+  // makes assumption of a node-like env
+  const cmd = argv.slice(
+    0,
+    // if 'run', assume bun or deno: bun run ./file.ts
+    argv[0] === 'node' ? 2 : (argv[1] === 'run' ? 3 : (isFlag(argv[0]) ? 0 : 1)),
+  );
 
-  // normilizes/remove matching quotes
-  const quoteNorm = (val: string): string => ((/^['"]/).test(val)
-    // ? val?.replace(/^(['"])(.*)\1$/, (m, q1, body, q2) => q1 ? quoteNorm(body) : m)
-    ? val?.replace(/^(['"])(.*)(['"])$/, (m, q1, body, q2) => q1 === q2 ? quoteNorm(body) : m)
-    : val);
-
-  const hasEq = (val?: string) => (/=/).test(val ?? '');
-  const isFlag = (val?: string) => (/^-+\w/).test(val ?? '') && Number.isNaN(Number(val));
-  const isTerm = (val?: string) => val?.trim() === '--';
-
-  const argvSnatch = (keys: string | string[], optValue = false) => {
-    const keyList = toArr(keys);
+  const getArgv = (keys: string | string[], optValue = false) => {
+    const keyList = toArr(keys, loose);
     for (let i = 0; i < cur.length; i++) {
       const token = cur[i];
       // the option terminator (--) -> terminates all into positionals
@@ -100,42 +126,19 @@ export const argvEnvParse = (argv = ARGV, procEnv = PROC_ENV, gthis = GLOBAL_THI
     return null;
   };
 
-  // makes assumption of a node-like env
-  const getCmd = () => argv.slice(
-    0,
-    // if 'run', assume bun or deno: bun run ./file.ts
-    argv[0] === 'node' ? 2 : (argv[1] === 'run' ? 3 : (isFlag(argv[0]) ? 0 : 1)),
-  );
-
-  const getPositionals = () => {
-    const result: string[] = [];
-    for (let i = getCmd().length; i < cur.length; i++) {
-      const token = cur[i];
-      if (!token) {continue;}
-      // the option terminator (--) -> terminates all into positionals
-      if (isTerm(token)) {return [...result, ...cur.slice(i + 1)];}
-      if (isFlag(token)) {
-        const next = cur[i + 1];
-        if (!hasEq(token) && next && !isTerm(next) && !isFlag(next)) {i++;}
-        continue;
-      }
-      result.push(token);
-    }
-    return result;
-  };
-
-  const getEnv = (keys: string | string[]) => toArr(keys).find(key =>
+  // environment arguments (process > globalThis)
+  const getEnv = (keys: string | string[]): string | null => (toArr(keys, loose).map(key =>
     ((key in procEnv)
       ? procEnv[key]
       : (key in gthis)
-        ? gthis[key]
-        : null) ?? null);
+        ? gthis[key as never]
+        : null)).filter(Boolean)[0] ?? null);
 
   const getFlag = (key: string | string[]) =>
-    (argvSnatch(toArr(key), false) !== null ? true : null);
+    (getArgv(toArr(key, loose), false) !== null ? true : null);
 
   const getOpt = <R extends NonEmptyString>(key: string | string[]) =>
-    argvSnatch(key, true) as R | null;
+    getArgv(key, true) as R | null;
 
   const getAny = <R = string>(keys: string | string[], defaultValue?: R) =>
     (getOpt(keys)
@@ -145,15 +148,31 @@ export const argvEnvParse = (argv = ARGV, procEnv = PROC_ENV, gthis = GLOBAL_THI
       ? string | true | null
       : string | true | R;
 
+  // positional arguments
+  const getPos = () => {
+    const result: string[] = [];
+    for (let i = cmd.length; i < cur.length; i++) {
+      const token = cur[i];
+      if (!token) {continue;}
+      // the option terminator (--) -> terminates all into positionals
+      if (isTerm(token)) {return [...result, ...cur.slice(i + 1)];}
+      if (isFlag(token)) { continue; }
+      result.push(token);
+    }
+    return result;
+  };
+
   return {
-    cmd: getCmd,
+    cmd: () => cmd,
     opt: getOpt,
     flag: getFlag,
     any: getAny,
-    pos: getPositionals,
+    pos: getPos,
     env: getEnv,
   } as const;
 };
 
-export const argvEnvParseLoose = (argv = ARGV, procEnv = PROC_ENV, gthis = GLOBAL_THIS as never) =>
+export const argvEnvParseLoose = (argv = ARGV, procEnv = PROC_ENV, gthis = GLOBAL_THIS) =>
   argvEnvParse(argv, procEnv, gthis, true);
+
+export default argvEnvParse;
