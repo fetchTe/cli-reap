@@ -765,3 +765,467 @@ describe('cliReap().env()', () => {
     expect(cliReapLoose([], procEnv).env('MY_VAR')).toBe('val');
   });
 });
+
+describe('cliReap() - Duplicate Flags/Options', () => {
+  describe('Duplicate Options with Values', () => {
+    test('handles duplicate options with different values - first call gets first occurrence', () => {
+      const argv = ['./my-cli', '--out', 'one', '--out', 'two'];
+      const parser = cliReap(argv);
+      expect(parser.opt('out')).toBe('one');
+      expect(parser.opt('out')).toBe('two');
+      expect(parser.opt('out')).toBe(null);
+    });
+
+    test('handles duplicate options using equals syntax', () => {
+      const argv = ['./my-cli', '--out=first', '--out=second', '--out=third'];
+      const parser = cliReap(argv);
+      expect(parser.opt('out')).toBe('first');
+      expect(parser.opt('out')).toBe('second');
+      expect(parser.opt('out')).toBe('third');
+      expect(parser.opt('out')).toBe(null);
+    });
+
+    test('handles mixed equals and space syntax for duplicate options', () => {
+      const argv = ['./my-cli', '--out=first', '--out', 'second', '--out=third'];
+      const parser = cliReap(argv);
+      expect(parser.opt('out')).toBe('first');
+      expect(parser.opt('out')).toBe('second');
+      expect(parser.opt('out')).toBe('third');
+      expect(parser.opt('out')).toBe(null);
+    });
+
+    test('handles duplicate short options', () => {
+      const argv = ['./my-cli', '-o', 'first', '-o', 'second'];
+      const parser = cliReap(argv);
+      expect(parser.opt('o')).toBe('first');
+      expect(parser.opt('o')).toBe('second');
+      expect(parser.opt('o')).toBe(null);
+    });
+
+    test('handles mixed long and short options for same key', () => {
+      const argv = ['./my-cli', '--output', 'first', '-o', 'second'];
+      const parser = cliReap(argv);
+      expect(parser.opt('output')).toBe('first');
+      expect(parser.opt('o')).toBe('second');
+    });
+
+    test('handles many duplicate options', () => {
+      const argv = ['./my-cli', '--flag', 'a', '--flag', 'b', '--flag', 'c', '--flag', 'd', '--flag', 'e'];
+      const parser = cliReap(argv);
+      expect(parser.opt('flag')).toBe('a');
+      expect(parser.opt('flag')).toBe('b');
+      expect(parser.opt('flag')).toBe('c');
+      expect(parser.opt('flag')).toBe('d');
+      expect(parser.opt('flag')).toBe('e');
+      expect(parser.opt('flag')).toBe(null);
+    });
+
+    test('duplicate options preserve positional arguments', () => {
+      const argv = ['./my-cli', 'pos1', '--out', 'one', 'pos2', '--out', 'two', 'pos3'];
+      const parser = cliReap(argv);
+      expect(parser.opt('out')).toBe('one');
+      expect(parser.opt('out')).toBe('two');
+      expect(parser.pos()).toEqual(['pos1', 'pos2', 'pos3']);
+    });
+  });
+
+  describe('Duplicate Flags', () => {
+    test('handles duplicate boolean flags', () => {
+      const argv = ['./my-cli', '--verbose', '--verbose', '--verbose'];
+      const parser = cliReap(argv);
+      expect(parser.flag('verbose')).toBe(true);
+      expect(parser.flag('verbose')).toBe(true);
+      expect(parser.flag('verbose')).toBe(true);
+      expect(parser.flag('verbose')).toBe(null);
+    });
+
+    test('handles duplicate short flags', () => {
+      const argv = ['./my-cli', '-v', '-v', '-v'];
+      const parser = cliReap(argv);
+      expect(parser.flag('v')).toBe(true);
+      expect(parser.flag('v')).toBe(true);
+      expect(parser.flag('v')).toBe(true);
+      expect(parser.flag('v')).toBe(null);
+    });
+
+    test('duplicate flags preserve positional arguments', () => {
+      const argv = ['./my-cli', 'pos1', '--verbose', 'pos2', '--verbose', 'pos3'];
+      const parser = cliReap(argv);
+      expect(parser.flag('verbose')).toBe(true);
+      expect(parser.flag('verbose')).toBe(true);
+      expect(parser.pos()).toEqual(['pos1', 'pos2', 'pos3']);
+    });
+  });
+
+  describe('Duplicate Mixed Types', () => {
+    test('handles same key as both flag and option in different calls', () => {
+      const argv = ['./my-cli', '--debug', '--debug', 'verbose', '--debug'];
+      const parser = cliReap(argv);
+      expect(parser.flag('debug')).toBe(true);
+      expect(parser.opt('debug')).toBe('verbose');
+      expect(parser.flag('debug')).toBe(true);
+      expect(parser.flag('debug')).toBe(null);
+    });
+
+    test('handles mixed duplicate options and flags with different keys', () => {
+      const argv = ['./my-cli', '--verbose', '--out', 'file1', '--verbose', '--out', 'file2'];
+      const parser = cliReap(argv);
+      expect(parser.flag('verbose')).toBe(true);
+      expect(parser.opt('out')).toBe('file1');
+      expect(parser.flag('verbose')).toBe(true);
+      expect(parser.opt('out')).toBe('file2');
+      expect(parser.flag('verbose')).toBe(null);
+      expect(parser.opt('out')).toBe(null);
+    });
+  });
+
+  describe('any() with Duplicate Options/Flags', () => {
+    test('any() handles duplicate options - returns first value, then subsequent calls check remaining args', () => {
+      const argv = ['./my-cli', '--out', 'one', '--out', 'two'];
+      const parser = cliReap(argv);
+      expect(parser.any('out')).toBe('one');
+      expect(parser.any('out')).toBe('two');
+      expect(parser.any('out')).toBe(null);
+    });
+
+    test('any() handles duplicate flags', () => {
+      const argv = ['./my-cli', '--verbose', '--verbose'];
+      const parser = cliReap(argv);
+      expect(parser.any('verbose')).toBe(true);
+      expect(parser.any('verbose')).toBe(true);
+      expect(parser.any('verbose')).toBe(null);
+    });
+  });
+
+  describe('cur() State with Duplicates', () => {
+    test('cur() reflects consumed arguments after each duplicate option call', () => {
+      const argv = ['./my-cli', '--out', 'one', '--out', 'two', 'pos'];
+      const parser = cliReap(argv);
+      expect(parser.cur()).toEqual(['--out', 'one', '--out', 'two', 'pos']);
+      expect(parser.opt('out')).toBe('one');
+      expect(parser.cur()).toEqual(['--out', 'two', 'pos']);
+      expect(parser.opt('out')).toBe('two');
+      expect(parser.cur()).toEqual(['pos']);
+    });
+
+    test('cur() reflects consumed arguments after each duplicate flag call', () => {
+      const argv = ['./my-cli', '--verbose', 'pos1', '--verbose', 'pos2'];
+      const parser = cliReap(argv);
+      expect(parser.cur()).toEqual(['--verbose', 'pos1', '--verbose', 'pos2']);
+      expect(parser.flag('verbose')).toBe(true);
+      expect(parser.cur()).toEqual(['pos1', '--verbose', 'pos2']);
+      expect(parser.flag('verbose')).toBe(true);
+      expect(parser.cur()).toEqual(['pos1', 'pos2']);
+    });
+  });
+
+  describe('Complex Duplicate Scenarios', () => {
+    test('handles complex scenario with multiple duplicate keys and mixed types', () => {
+      const argv = [
+        './my-cli',
+        '--input',
+        'file1.txt',
+        '--verbose',
+        '--input',
+        'file2.txt',
+        '--output',
+        'out1.txt',
+        'positional1',
+        '--verbose',
+        '--output',
+        'out2.txt',
+        'positional2',
+      ];
+      const parser = cliReap(argv);
+
+      expect(parser.opt('input')).toBe('file1.txt');
+      expect(parser.flag('verbose')).toBe(true);
+      expect(parser.opt('input')).toBe('file2.txt');
+      expect(parser.opt('output')).toBe('out1.txt');
+      expect(parser.flag('verbose')).toBe(true);
+      expect(parser.opt('output')).toBe('out2.txt');
+      expect(parser.pos()).toEqual(['positional1', 'positional2']);
+
+      // All consumed
+      expect(parser.opt('input')).toBe(null);
+      expect(parser.flag('verbose')).toBe(null);
+      expect(parser.opt('output')).toBe(null);
+    });
+
+    test('handles duplicate options with quoted values', () => {
+      const argv = ['./my-cli', '--msg', '"hello world"', '--msg', "'goodbye world'"];
+      const parser = cliReap(argv);
+      expect(parser.opt('msg')).toBe('hello world');
+      expect(parser.opt('msg')).toBe('goodbye world');
+      expect(parser.opt('msg')).toBe(null);
+    });
+
+    test('handles duplicate options with special characters', () => {
+      const argv = ['./my-cli', '--path', '/usr/local/bin', '--path', 'C:\\Program Files'];
+      const parser = cliReap(argv);
+      expect(parser.opt('path')).toBe('/usr/local/bin');
+      expect(parser.opt('path')).toBe('C:\\Program Files');
+      expect(parser.opt('path')).toBe(null);
+    });
+  });
+});
+
+describe('README Examples - Documentation Tests', () => {
+
+  describe('Introduction Example', () => {
+    test('parses order-independent CLI arguments as shown in intro', () => {
+      // The three different argument orders from README intro
+      const examples = [
+        ['node', './cli-reaps.js', 'input.txt', '--output=file.txt', '--verbose'],
+        ['bun', 'run', './reapin.ts', '--verbose', '--output=file.txt', 'input.txt'],
+        ['deno', 'run', './argvs.ts', '--verbose', 'input.txt', '--output=file.txt'],
+      ];
+
+      examples.forEach(argv => {
+        const parser = cliReap(argv);
+        expect(parser.flag('verbose')).toBe(true); // removes --verbose
+        expect(parser.opt('output')).toBe('file.txt'); // removes --output=file.txt
+        expect(parser.pos()).toEqual(['input.txt']); // positional remains
+      });
+    });
+
+    test('the reaper reaps regardless', () => {
+      const ARGVS = `
+      ./order  --output=file.txt --verbose input.txt
+      ./does   --output file.txt input.txt --verbose
+      ./not    --verbose --output=file.txt input.txt
+      ./matter --verbose input.txt --output file.txt
+      ./to-the input.txt --output file.txt --verbose
+      ./reaper input.txt --verbose --output=file.txt
+      `.trim().split('\n');
+
+      const EXPECT = `
+      verbose: true
+      out: file.txt
+      pos: input.txt`.repeat(ARGVS.length); // regardless of order, we expect the same output
+
+      expect(ARGVS.map(arg => {
+        const reap = cliReap(arg.split(' '));
+        return `
+      verbose: ${reap.flag('verbose')}
+      out: ${reap.opt('output')}
+      pos: ${reap.pos().pop()}`;
+      }).join('')).toBe(EXPECT); // a-ok - all four input(s) produce the same output
+    });
+
+
+  });
+
+  describe('any() method examples', () => {
+    test('follows priority order: argv > environment > globalThis > default', () => {
+      const ARGV = ['node', 'app.js', '--flag', '--apple=out.txt', '-v', '-i', 'in.txt'];
+      const reap = cliReap(ARGV);
+
+      expect(reap.any(['f', 'flag'])).toBe(true); // found --flag
+      expect(reap.any(['h', 'help'])).toBe(null); // no '-h', '--help', or default -> null
+      expect(reap.any(['luck'], 7)).toBe(7); // no '--luck', but default provided
+      expect(reap.any(['v', 'verbose'])).toBe(true); // found -v
+      expect(reap.flag(['a'])).toBe(null);
+      expect(reap.any(['a', 'apple'])).toBe('out.txt'); // found --output=out.txt
+      expect(reap.any(['i', 'in'])).toBe('in.txt'); // found --in in.txt
+    });
+
+    test('duplicate handling - consumes first matching argument', () => {
+      const reap = cliReap(['./my-cli', '--out', 'one', '--out', 'two']);
+      expect(reap.any('out')).toBe('one'); // first occurrence, consumed
+      expect(reap.any('out')).toBe('two'); // second occurrence, consumed
+      expect(reap.any('out')).toBe(null); // no more occurrences
+    });
+  });
+
+  describe('opt() method examples', () => {
+    test('retrieves option values with different syntaxes', () => {
+      const ARGV = ['node', 'app.js', '--output=file.txt', '--input', 'data.txt', '-v'];
+      const reap = cliReap(ARGV);
+
+      expect(reap.opt('output')).toBe('file.txt'); // --output=file.txt (equals syntax)
+      expect(reap.opt(['i', 'input'])).toBe('data.txt'); // --input data.txt (space syntax)
+      expect(reap.opt('verbose')).toBe(null); // -v is a flag, not an option
+    });
+
+    test('retrieves option values with different syntaxes alt', () => {
+      const reap = cliReap(['node', 'app.js', '--find=file.txt', '--data', 'dog.txt', '-v']);
+
+      expect(reap.opt('find')).toBe('file.txt');
+      expect(reap.opt(['d', 'data'])).toBe('dog.txt');
+      expect(reap.opt('v')).toBe(null); // -v is a flag, not an option
+    });
+
+    test('duplicate handling - consumes options in order', () => {
+      const reap = cliReap(['./my-cli', '--out', 'first', '--out', 'second', '--out=third']);
+      expect(reap.opt('out')).toBe('first'); // --out first (consumed)
+      expect(reap.opt('out')).toBe('second'); // --out second (consumed)
+      expect(reap.opt('out')).toBe('third'); // --out=third (consumed)
+      expect(reap.opt('out')).toBe(null); // no more --out options
+    });
+  });
+
+  describe('flag() method examples', () => {
+    test('checks for flag presence and removes from argv', () => {
+      const ARGV = ['node', 'app.js', '--verbose', '-d', '--force', 'file.txt'];
+      const reap = cliReap(ARGV);
+
+      expect(reap.flag('verbose')).toBe(true); // --verbose found
+      expect(reap.flag(['d', 'debug'])).toBe(true); // -d found (matches 'd')
+      expect(reap.flag('quiet')).toBe(null); // --quiet not found
+      expect(reap.flag('force')).toBe(true); // --force found
+    });
+
+    test('duplicate handling - consumes flags in order', () => {
+      const reap = cliReap(['./my-cli', '--verbose', '--verbose', '-v']);
+      expect(reap.flag('verbose')).toBe(true); // first --verbose consumed
+      expect(reap.flag('verbose')).toBe(true); // second --verbose consumed
+      expect(reap.flag('v')).toBe(true); // -v consumed
+      expect(reap.flag('verbose')).toBe(null); // no more verbose flags
+    });
+  });
+
+  describe('pos() method examples', () => {
+    test('returns remaining positional arguments after parsing', () => {
+      const ARGV = ['node', 'app.js', 'input.txt', '--verbose', 'output.txt', '-f'];
+      const reap = cliReap(ARGV);
+
+      expect(reap.pos()).toEqual(['input.txt', 'output.txt']); // before parsing
+      reap.flag('verbose'); // consumes --verbose
+      reap.flag('f'); // consumes -f
+      expect(reap.pos()).toEqual(['input.txt', 'output.txt']); // after parsing flags
+    });
+
+    test('duplicate handling preserves positionals', () => {
+      const reap = cliReap(['./my-cli', 'file1.txt', '--out', 'a', 'file2.txt', '--out', 'b']);
+      reap.opt('out'); // 'a' (consumes --out a)
+      reap.opt('out'); // 'b' (consumes --out b)
+      expect(reap.pos()).toEqual(['file1.txt', 'file2.txt']); // positionals remain
+    });
+  });
+
+  describe('cmd() method examples', () => {
+    test('returns command portion for different execution contexts', () => {
+      // Node.js execution
+      const reap1 = cliReap(['node', 'script.js', '--flag', 'value']);
+      expect(reap1.cmd()).toEqual(['node', 'script.js']);
+
+      // Bun execution
+      const reap2 = cliReap(['bun', 'run', 'script.ts', '--flag', 'value']);
+      expect(reap2.cmd()).toEqual(['bun', 'run', 'script.ts']);
+
+      // Direct executable
+      const reap3 = cliReap(['./my-cli', '--flag', 'value']);
+      expect(reap3.cmd()).toEqual(['./my-cli']);
+
+      // Flags at start (no executable detected)
+      const reap4 = cliReap(['--flag', 'value']);
+      expect(reap4.cmd()).toEqual([]);
+    });
+  });
+
+  describe('cur() method examples', () => {
+    test('returns current un-consumed argvs', () => {
+      const reap = cliReap(['./my-cli', '--flag', 'value', 'pos1']);
+      expect(reap.cur()).toEqual(['--flag', 'value', 'pos1']); // initially all args
+      reap.flag('flag'); // consumes --flag
+      expect(reap.cur()).toEqual(['value', 'pos1']); // after flag consumption
+    });
+
+    test('tracks consumption in real-time with duplicates', () => {
+      const reap = cliReap(['./my-cli', '--out', 'first', '--out', 'second', 'pos']);
+      expect(reap.cur()).toEqual(['--out', 'first', '--out', 'second', 'pos']);
+      expect(reap.opt('out')).toBe('first'); // consumes --out first
+      expect(reap.cur()).toEqual(['--out', 'second', 'pos']);
+      expect(reap.opt('out')).toBe('second'); // consumes --out second
+      expect(reap.cur()).toEqual(['pos']);
+    });
+  });
+
+  describe('end() method examples', () => {
+    test('detects end-of-options delimiter', () => {
+      const reap = cliReap(['./exe', '--flag', '--', '-v', '--in', 'in.txt']);
+      expect(reap.end()).toBe(true);
+
+      expect(reap.pos()).toEqual(['-v', '--in', 'in.txt']);
+      const reReap = cliReap(reap.pos());
+      expect(reReap.opt('in')).toBe('in.txt');
+    });
+  });
+
+  describe('env() method examples', () => {
+    test('retrieves from environment variables and globalThis', () => {
+      const procEnv = { NODE_ENV: 'development' };
+      const gthis = { DEBUG: 'true' } as never as typeof globalThis;
+      const reap = cliReap([], procEnv, gthis);
+
+      expect(reap.env('NODE_ENV')).toBe('development'); // from process.env
+      expect(reap.env('DEBUG')).toBe('true'); // from globalThis (fallback)
+      expect(reap.env(['TEST', 'DEBUG'])).toBe('true'); // first match wins
+      expect(reap.env('MISSING')).toBe(null); // not found anywhere
+    });
+  });
+
+  describe('cliReapLoose examples', () => {
+    test('case sensitivity differences', () => {
+      expect(cliReap(['-I', 'test']).opt('i')).toBe(null); // strict: no match
+      expect(cliReapLoose(['-I', 'test']).opt('i')).toBe('test'); // loose: case-insensitive
+    });
+
+    test('hyphen/underscore swapping', () => {
+      expect(cliReap(['--swap_in', 'loose']).opt('swap-in')).toBe(null); // strict: no match
+      expect(cliReapLoose(['--swap_in', 'loose']).opt('swap-in')).toBe('loose'); // loose: swaps _ ↔ -
+    });
+
+    test('both features combined', () => {
+      expect(cliReapLoose(['--My_Key', 'value']).opt('my-key')).toBe('value'); // case + swap
+    });
+  });
+
+  describe('Duplicates section examples', () => {
+    test('basic duplicate consumption', () => {
+      const reap = cliReap(['./my-cli', '--out', 'first', '--out', 'second', '--out=third']);
+      expect(reap.opt('out')).toBe('first'); // --out first (consumed)
+      expect(reap.opt('out')).toBe('second'); // --out second (consumed)
+      expect(reap.opt('out')).toBe('third'); // --out=third (consumed)
+      expect(reap.opt('out')).toBe(null); // no more --out options
+    });
+
+    test('multiple output files collection', () => {
+      const reap = cliReap(['./build', '--out', 'dist/', '--out', 'build/', '--out', 'public/']);
+      const outputs = [];
+      let output;
+      while ((output = reap.opt('out')) !== null) {
+        outputs.push(output);
+      }
+      expect(outputs).toEqual(['dist/', 'build/', 'public/']);
+    });
+
+    test('verbose level counting', () => {
+      const reap2 = cliReap(['./app', '-v', '-v', '-v']);
+      let verboseLevel = 0;
+      while (reap2.flag('v') !== null) {
+        verboseLevel++;
+      }
+      expect(verboseLevel).toBe(3);
+    });
+  });
+
+  describe('Advanced mixed parsing scenarios', () => {
+    test('collects configs and counts debug flags together', () => {
+      const reap3 = cliReap(['./tool', '--debug', '--config', 'dev.json', '--debug', '--config', 'prod.json']);
+      const configs = [];
+      let debugCount = 0;
+
+      // Collect all configs and count debug flags
+      let config, debug;
+      while ((config = reap3.opt('config')) !== null || (debug = reap3.flag('debug')) !== null) {
+        if (config) {configs.push(config);}
+        if (debug) {debugCount++;}
+      }
+
+      expect(configs).toEqual(['dev.json', 'prod.json']);
+      expect(debugCount).toBe(2);
+    });
+  });
+});
