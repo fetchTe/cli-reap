@@ -97,7 +97,7 @@ export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = fal
         // in case literal key passed in such as '--key' or '-key'
         const [k, ...parts] = token.replace(isFlag(key) ? /(?!)/ : /^\s*?-+/, '')
           // ensures 'f' key doesn't match '--flag'
-          .split(hasEq ? key : new RegExp(`${key}$`, loose ? 'i' : ''));
+          .split(hasEq && optValue ? `${key}=` : new RegExp(`^${key}$`, loose ? 'i' : ''));
         return !k?.length ? parts.join(key) : (k === key ? key : null);
       })
         .find(v => v !== null) ?? 0;
@@ -108,10 +108,10 @@ export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = fal
         cur.splice(i, 1);
         return true;
       }
-      // handle --key=value
-      if ((/^=/).test(part)) {
+      // handle --key=value (= already removed from split)
+      if (hasEq) {
         cur.splice(i, 1);
-        return quoteNorm(part.slice(1));
+        return quoteNorm(part);
       }
       // handle --key value alongside negative numbers
       const next = cur[i + 1];
