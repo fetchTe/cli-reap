@@ -1,6 +1,26 @@
 type NonEmptyString = string & { length: number };
 type GlobalThis = typeof globalThis;
 
+export type CliReap = Readonly<{
+  /** finds any value, in order: argv > environment > globalThis > default; removes from 'cur' argv if present */
+  any: <R = string>(keys: string | string[], defaultValue?: R)=>
+  R extends undefined ? string | true | null : string | true | R;
+  /** command portion of argv (executable and script name) */
+  cmd: ()=> string[];
+  /** current un-consumed argv */
+  cur: ()=> string[];
+  /** if end-of-options/double-dash (--) delimiter is present in argv */
+  end: ()=> boolean;
+  /** value from environment variables or globalThis; does not mutate */
+  env: (keys: string | string[])=> string | null;
+  /** checks for flag presence and removes it from 'cur' argv */
+  flag: (keys: string | string[])=> true | null;
+  /** retrieves operand value and removes it from 'cur' argv  */
+  opt: <R extends NonEmptyString>(key: string | string[])=> R | null;
+  /** remaining positional arguments (typically called last)  */
+  pos: ()=> string[];
+}>;
+
 // empty polyfil for prehistoric node envs to avoid needless runtime errors
 const GLOBAL_THIS = typeof globalThis !== 'undefined' ? globalThis : {} as GlobalThis;
 
