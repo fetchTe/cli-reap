@@ -74,7 +74,7 @@ const BASE_TEST_CASES_DEF: BaseTestCasesDef = [
   ['string-unicode-emoji', 'key', '😀'],
   ['string-unicode-special', 'key', '∑'],
   ['string-html-entities', 'key', '<div>'],
-  // eslint-disable-next-line @stylistic/quotes
+
   ['string-sql-injection', 'key', "' OR '1'='1"],
   ['string-xss-attempt', 'key', '<script>alert(1)</script>'],
   ['string-null', 'key', 'null'],
@@ -93,7 +93,7 @@ const BASE_TEST_CASES_DEF: BaseTestCasesDef = [
   ['string-mulit-quoted', 'key', "'single quoted'", "single quoted"],
   ['string-escaped-quotes', 'key', '\"quoted text\"', 'quoted text'],
 
-  ['string-mixed-quotes', 'key', `'some "quoted text"\\ here'`, `some "quoted text"\\ here`], // need to escape spaces
+  ['string-mixed-quotes', 'key', `'some "quoted text"\\ here'`, 'some "quoted text"\\ here'], // need to escape spaces
   ['string-mixed-quotes', 'key', `'some \'quoted text\'\\ here'`, `some \'quoted text\'\\ here`], // need to escape spaces
 
   // special key formats
@@ -333,11 +333,11 @@ describe('cliReap().opt()', () => {
     });
 
     test('handles complex nested and recursive quotes', () => {
-      expect(cliReap(['./ok', '--key', `"''''"`]).opt('key')).toBe(``);
-      expect(cliReap(['./ok', '--key', `'""""'`]).opt('key')).toBe(``);
-      expect(cliReap(['./ok', '--key', `'""silly""'`]).opt('key')).toBe(`silly`);
+      expect(cliReap(['./ok', '--key', `"''''"`]).opt('key')).toBe('');
+      expect(cliReap(['./ok', '--key', `'""""'`]).opt('key')).toBe('');
+      expect(cliReap(['./ok', '--key', `'""silly""'`]).opt('key')).toBe('silly');
       expect(cliReap(['./ok', '--key', `'\'"\'"\'"\'"'`]).opt('key')).toBe(`'"'"'"'"`);
-      expect(cliReap(['./ok', '--key', `'::::'`]).opt('key')).toBe(`::::`);
+      expect(cliReap(['./ok', '--key', `'::::'`]).opt('key')).toBe('::::');
     });
 
     test('preserves special characters in values', () => {
@@ -523,16 +523,16 @@ describe('cliReap().any() - Value Retrieval and Fallbacks', () => {
 
   test('handles quoted values correctly', () => {
     expect(cliReap(['--flag="quoted value"']).any('flag')).toBe('quoted value');
-    // eslint-disable-next-line @stylistic/quotes
+
     expect(cliReap(['--flag', "'quoted value'"]).any('flag')).toBe('quoted value');
   });
 
   test('handles empty quoted values', () => {
     const argv = ['node', 'script.js'];
-    // eslint-disable-next-line @stylistic/quotes
+
     expect(cliReap(argv.concat("--flag=''")).any('flag')).toBe('');
     expect(cliReap(argv.concat('--flag=""')).any('flag')).toBe('');
-    // eslint-disable-next-line @stylistic/quotes
+
     expect(cliReap(["--flag=''", ...argv]).any('flag')).toBe('');
     expect(cliReap(['--flag=""', ...argv]).any('flag')).toBe('');
   });
