@@ -653,6 +653,8 @@ describe('cliReap().pos()', () => {
     test('differentiates between parsing a flag vs an option of the same name', () => {
       const argv = ['node', 'script.js', '--flag', 'value', 'pos1'];
       const flagParser = cliReap(argv);
+      expect(flagParser.end()).toEqual(false);
+
       flagParser.flag('flag');
       expect(flagParser.pos()).toEqual(['value', 'pos1']);
 
@@ -674,15 +676,24 @@ describe('cliReap().pos()', () => {
 
     test('finds positionals both before and after --', () => {
       const parser = cliReap(['node', 'script.js', 'pos1', '--opt=val', '--', 'pos2', '-f']);
-      parser.opt('opt');
+      expect(parser.end()).toEqual(true);
+      expect(parser.opt('opt')).toEqual('val');
+      expect(parser.opt('opt')).toEqual(null);
+      expect(parser.end()).toEqual(true);
+      // should not clear out/remove positional
+      expect(parser.pos()).toEqual(['pos1', 'pos2', '-f']);
+      expect(parser.pos()).toEqual(['pos1', 'pos2', '-f']);
+      expect(parser.pos()).toEqual(['pos1', 'pos2', '-f']);
       expect(parser.pos()).toEqual(['pos1', 'pos2', '-f']);
     });
 
     test('returns empty array if -- is the only argument after the script', () => {
+      expect(cliReap(['node', 'script.js', '--']).end()).toEqual(true);
       expect(cliReap(['node', 'script.js', '--']).pos()).toEqual([]);
     });
 
     test('handles a second -- as a positional argument', () => {
+      expect(cliReap(['node', 'script.js', '--', '--']).end()).toEqual(true);
       expect(cliReap(['node', 'script.js', '--', '--']).pos()).toEqual(['--']);
     });
   });
