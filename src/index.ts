@@ -57,17 +57,39 @@ export const hasArgv = (keys: string | string[], argv = ARGV): boolean => !argv?
     (new RegExp(`(^|[^\\S])(?:--|-)${key}(=|\\s|$)`, 'i')).test(argv.join(' '))));
 
 
-// normilizes/remove matching quotes
+/**
+ * normalizes and removes matching quotes from string values
+ * @param  {string} val - string value to normalize
+ * @return {string}
+ */
 const quoteNorm = (val: string): string => ((/^['"]/).test(val)
   ? val?.replace(/^(['"])(.*)(['"])$/, (m, q1, body, q2) => q1 === q2 ? quoteNorm(body) : m)
   : val);
 
-// if flag value
+
+/**
+ * checks if value is a flag (starts with dashes and is not a number)
+ * @param  {string} val - value to check
+ * @return {boolean}
+ */
 const isFlag = (val?: string) => (/^-+\w/).test(val ?? '') && Number.isNaN(Number(val));
 
-// if option terminator (--)
+
+/**
+ * checks if value is option terminator (--)
+ * @param  {string} val - value to check
+ * @return {boolean}
+ */
 const isTerm = (val?: string) => val?.trim() === '--';
 
+
+/**
+ * converts key(s) to array with optional loose matching (hyphen/underscore swapping)
+ * @param  {string|string[]} key         - key or array of keys
+ * @param  {boolean}         loose=false - enable loose matching
+ * @param  {string[]}        _keys       - internal key array
+ * @return {string[]}
+ */
 const toArr = (key: string | string[], loose = false, _keys = (Array.isArray(key) ? key : [key])) =>
   (loose
     // if loose swap '-' and '_' in keys
@@ -79,7 +101,15 @@ const toArr = (key: string | string[], loose = false, _keys = (Array.isArray(key
     : _keys);
 
 
-export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = false) => {
+/**
+ * creates CLI argument parser that consumes flags, options, and positionals
+ * @param  {string[]}            argv=ARGV         - command-line arguments array
+ * @param  {NodeJS.ProcessEnv}   env=ENV           - process environment variables
+ * @param  {typeof globalThis}   gthis=GLOBAL_THIS - global object for runtime-set/fallback values
+ * @param  {boolean}             loose=false       - enable loose matching (case/hyphen/underscore insensitive)
+ * @return {CliReap}
+ */
+export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = false): CliReap => {
   // makes assumption of a node-like env - if run second arg we assume bun/deno (bun run index.ts)
   const slice = argv[0] === 'node' ? 2 : (argv[1] === 'run' ? 3 : (isFlag(argv[0]) ? 0 : 1));
   const cur = argv.map(String).slice(slice);
@@ -172,6 +202,13 @@ export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = fal
   } as const;
 };
 
+/**
+ * creates CLI argument parser with loose matching enabled (case/hyphen/underscore insensitive)
+ * @param  {string[]}            argv=ARGV         - command-line arguments array
+ * @param  {NodeJS.ProcessEnv}   procEnv=ENV       - process environment variables
+ * @param  {typeof globalThis}   gthis=GLOBAL_THIS - global object for runtime-set/fallback values
+ * @return {CliReap}
+ */
 export const cliReapLoose = (argv = ARGV, procEnv = ENV, gthis = GLOBAL_THIS) =>
   cliReap(argv, procEnv, gthis, true);
 
