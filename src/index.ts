@@ -84,13 +84,14 @@ export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = fal
   const slice = argv[0] === 'node' ? 2 : (argv[1] === 'run' ? 3 : (isFlag(argv[0]) ? 0 : 1));
   const cur = argv.map(String).slice(slice);
   const cmd = argv.map(String).slice(0, slice);
+  const end = !!cur.find(isTerm);
 
   const getArgv = (keys: string | string[], optValue = false) => {
     const keyList = toArr(keys, loose);
     for (let i = 0; i < cur.length; i++) {
       const token = cur[i];
-      // the option terminator (--) -> terminates all into positionals
-      if (isTerm(token)) {break;}
+      // the option terminator (--) -> terminates all into positionals (per. POSIX)
+      if (isTerm(token)) { break;}
       if (!token || !isFlag(token)) {continue;}
       const hasEq = (/=/).test(token);
       const part = keyList.map(key => {
@@ -151,8 +152,8 @@ export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = fal
     for (let i = 0; i < cur.length; i++) {
       const token = cur[i];
       if (!token) {continue;}
-      // the option terminator (--) -> terminates all into positionals
-      if (isTerm(token)) {return [...result, ...cur.slice(i + 1)];}
+      // the option terminator (--) -> terminates all into positionals (per. POSIX)
+      if (isTerm(token)) { return [...result, ...cur.slice(i + 1)];}
       if (isFlag(token)) { continue; }
       result.push(token);
     }
@@ -163,6 +164,7 @@ export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = fal
     any: getAny,
     cmd: () => cmd,
     cur: () => cur,
+    end: () => end,
     env: getEnv,
     flag: getFlag,
     opt: getOpt,
