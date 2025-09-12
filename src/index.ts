@@ -132,11 +132,11 @@ export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = fal
         ? gthis[key as never]
         : null)).filter(Boolean)[0] ?? null);
 
-  const getFlag = (key: string | string[]) =>
-    (getArgv(toArr(key, loose), false) !== null ? true : null);
+  const getFlag = (keys: string | string[]) =>
+    (getArgv(keys, false) !== null ? true : null);
 
-  const getOpt = <R extends NonEmptyString>(key: string | string[]) =>
-    getArgv(key, true) as R | null;
+  const getOpt = <R extends NonEmptyString>(keys: string | string[]) =>
+    getArgv(keys, true) as R | null;
 
   const getAny = <R = string>(keys: string | string[], defaultValue?: R) =>
     (getOpt(keys)
