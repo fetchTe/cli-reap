@@ -1,5 +1,10 @@
-type NonEmptyString = string & { length: number };
-type GlobalThis = typeof globalThis;
+import {
+  ENV,
+  ARGV,
+  GLOBAL_THIS,
+} from 'globables';
+
+export type NonEmptyString = string & { length: number };
 
 export type CliReap = Readonly<{
   /** finds any value, in order: argv > environment > globalThis > default; removes from 'cur' argv if present */
@@ -20,48 +25,6 @@ export type CliReap = Readonly<{
   /** remaining positional arguments (typically called last)  */
   pos: ()=> string[];
 }>;
-
-// empty polyfil for prehistoric node envs to avoid needless runtime errors
-const GLOBAL_THIS = typeof globalThis !== 'undefined' ? globalThis : {} as GlobalThis;
-
-/**
- * command-line arguments (pure/iffe wrapped so we can shake the tree)
- * @see {@link https://nodejs.org/api/process.html#processargv|Node.js process.argv docs}
- */
-export const ARGV: string[] = /* @__PURE__ */ (() =>
-  typeof process === 'undefined'
-    /** quickJs {@link https://bellard.org/quickjs/quickjs.html#Global-objects} */
-    ? typeof scriptArgs !== 'undefined'
-      ? scriptArgs
-      : []
-    : ((globalThis as never)?.['Deno']
-      // if --allow-all is used, no args (like --allow-env), use default
-      // @ts-expect-error deno uses 'args' rather than 'argv'
-      ? (process['args']?.length ? process['args'] : process['argv'])
-      : process['argv']
-    ) ?? []
-)();
-
-
-/**
- * process environment (ENV) variables
- * @see {@link https://nodejs.org/api/process.html#processenv|Node.js env docs}
- */
-export const ENV = /* @__PURE__ */ (() => typeof process === 'undefined'
-  ? {}
-  /** deno {@link https://docs.deno.com/runtime/reference/env_variables/#built-in-deno.env} */
-  : (!(globalThis as never)?.['Deno']
-    ? process['env']
-  // deno requires permission to access env: --allow-env
-    : (() => {
-      try {
-        // if --allow-all is used, no toObject (like --allow-env), use default
-        // @ts-expect-error deno perms
-        return process['env']?.toObject ? process['env']?.toObject() : process['env'];
-      } catch (_err) { /* ignore */ }
-      return {};
-    })())
-)() as NodeJS.ProcessEnv;
 
 
 /**
@@ -233,3 +196,8 @@ export const cliReapLoose = (argv = ARGV, procEnv = ENV, gthis = GLOBAL_THIS) =>
   cliReap(argv, procEnv, gthis, true);
 
 export default cliReap;
+
+export {
+  ENV,
+  ARGV,
+};
