@@ -45,7 +45,7 @@ export const hasArgv = (keys: string | string[], argv = ARGV): boolean => !argv?
  * @param  {string} val - string value to normalize
  * @return {string}
  */
-const quoteNorm = (val: string): string => ((/^['"]/).test(val)
+export const quoteNorm = (val: string): string => ((/^['"]/).test(val)
   ? val?.replace(/^(['"])(.*)(['"])$/, (m, q1, body, q2) => q1 === q2 ? quoteNorm(body) : m)
   : val);
 
@@ -55,7 +55,7 @@ const quoteNorm = (val: string): string => ((/^['"]/).test(val)
  * @param  {string} val - value to check
  * @return {boolean}
  */
-const isFlag = (val?: string) => (/^-+\w/).test(val ?? '') && Number.isNaN(Number(val));
+export const isFlag = (val?: string) => (/^-+\w/).test(val ?? '') && Number.isNaN(Number(val));
 
 
 /**
