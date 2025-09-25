@@ -1,10 +1,10 @@
 {
   "name": "cli-reap",
-  "version": "0.0.1",
-  "description": "a node package",
+  "version": "1.0.0",
+  "description": "CLI and ENV parser; indifferent to argument order or runtime",
   "homepage": "https://github.com/fetchTe/cli-reap",
   "license": "MIT",
-  "keywords": [ "node", "bun-make" ],
+  "keywords": [ "CLI", "argv", "ENV", "flags", "options", "positionals", "double-dash", "globalThis", "Node", "Deno", "Bun", "QuickJS" ],
   "files": [ "dist" ],
   "type": "module",
   "main": "./dist/index.cjs",
