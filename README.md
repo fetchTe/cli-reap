@@ -2,7 +2,7 @@
 
 Your friendly neighborhood CLI reaper (parser), indifferent to argument order or runtime
 
-<img align="right" width="130" height="auto" alt="logo" src="https://github.com/user-attachments/assets/88e818ff-ee9e-4364-9a75-86cea7301a59" />
+<img align="right" width="130" height="auto" alt="logo" src="https://raw.githubusercontent.com/fetchTe/cli-reap/master/docs/cli-reap-logo.png" />
 
 > ╸ **Supports**: [flags](#-flag), [options](#-opt), [positionals](#-pos), [duplicates](#duplicates), [double-dash](#-end), and [ENV](#-env) + [`globalThis`](#-env)<br />
 > ╸ **Runtimes**: [Node.js](https://nodejs.org/), [Deno](https://deno.com/), [Bun](https://bun.sh/), [QuickJS](https://bellard.org/quickjs/), and others with [`argv`](https://nodejs.org/api/process.html#processargv) & [`env`](https://nodejs.org/api/process.html#processenv) handling <br />
