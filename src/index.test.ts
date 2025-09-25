@@ -990,7 +990,7 @@ describe('cliReap() - Duplicate Flags/Options', () => {
   });
 });
 
-describe('README Examples - Documentation Tests - v1', () => {
+describe('README Examples -- v1', () => {
 
   describe('Introduction Example', () => {
     test('parses order-independent CLI arguments as shown in intro', () => {
@@ -1252,6 +1252,196 @@ describe('README Examples - Documentation Tests - v1', () => {
 });
 
 
-describe('README Examples - Documentation Tests - v2', () => {
+describe('README Examples -- v2', () => {
+  describe('THE GIST example', () => {
+    test('matches the README demonstration of order-independent parsing', () => {
+      const ARGVS = [
+        './order  --out=file.txt --verbose input.txt',
+        './does   --out file.txt input.txt --verbose',
+        './not    --verbose --out=file.txt input.txt',
+        './matter --verbose input.txt --out file.txt',
+        './to-the input.txt --out file.txt --verbose',
+        './reaper input.txt --verbose --out=file.txt',
+      ];
 
-})
+      const EXPECT = `
+verbose: true
+output: file.txt
+input: input.txt`.repeat(ARGVS.length);
+
+      const OUTPUT = ARGVS.map(arg => {
+        const reap = cliReap(arg.split(' '));
+        return `
+verbose: ${reap.flag('verbose')}
+output: ${reap.opt('out')}
+input: ${reap.pos().pop()}`;
+      }).join('');
+
+      expect(OUTPUT).toBe(EXPECT);
+    });
+  });
+
+  describe('any() example', () => {
+    test('follows argv > environment > globalThis > default precedence', () => {
+      const reap = cliReap(['node', 'app.js', '--flag', '--out=out.txt', '-v', '-i', 'in.txt']);
+
+      expect(reap.any(['f', 'flag'])).toBe(true);
+      expect(reap.any(['h', 'help'])).toBe(null);
+      expect(reap.any(['luck'], 7)).toBe(7);
+      expect(reap.any(['v', 'verbose'])).toBe(true);
+      expect(reap.any(['o', 'out'])).toBe('out.txt');
+      expect(reap.any(['i', 'in'])).toBe('in.txt');
+    });
+  });
+
+  describe('cmd() example', () => {
+    test('returns command portion for each runtime style', () => {
+      expect(cliReap(['node', 'script.js', '--flag']).cmd()).toEqual(['node', 'script.js']);
+      expect(cliReap(['bun', 'run', 'script.ts', '--flag']).cmd()).toEqual(['bun', 'run', 'script.ts']);
+      expect(cliReap(['./my-cli', '--flag', 'value']).cmd()).toEqual(['./my-cli']);
+      expect(cliReap(['--flag', 'value']).cmd()).toEqual([]);
+    });
+  });
+
+  describe('cur() example', () => {
+    test('tracks consumption exactly as documented', () => {
+      const reap = cliReap(['./my-cli', '--yolo', 'value', 'pos1']);
+      expect(reap.cur()).toEqual(['--yolo', 'value', 'pos1']);
+      expect(reap.flag('yolo')).toBe(true);
+      expect(reap.cur()).toEqual(['value', 'pos1']);
+    });
+  });
+
+
+  describe('env() examples', () => {
+    test('reads from process.env before falling back to globalThis', () => {
+      const previousNodeEnv = process.env.NODE_ENV;
+      const globalRef = globalThis as typeof globalThis & { DEBUG?: string };
+      const previousDebug = globalRef.DEBUG;
+
+      process.env.NODE_ENV = 'development';
+      globalRef.DEBUG = 'true';
+
+      try {
+        const reap = cliReap();
+        expect(reap.env('NODE_ENV')).toBe('development');
+        expect(reap.env('DEBUG')).toBe('true');
+        expect(reap.env(['TEST', 'DEBUG'])).toBe('true');
+        expect(reap.env('MISSING')).toBe(null);
+      } finally {
+        if (previousNodeEnv === undefined) {
+          delete process.env.NODE_ENV;
+        } else {
+          process.env.NODE_ENV = previousNodeEnv;
+        }
+
+        if (previousDebug === undefined) {
+          delete globalRef.DEBUG;
+        } else {
+          globalRef.DEBUG = previousDebug;
+        }
+      }
+    });
+
+
+    test('retrieves values from environment and globalThis', () => {
+      const procEnv = { NODE_ENV: 'development' };
+      const gthis = { DEBUG: 'true' } as never as typeof globalThis;
+      const reap = cliReap([], procEnv, gthis);
+
+      expect(reap.env('NODE_ENV')).toBe('development');
+      expect(reap.env('DEBUG')).toBe('true');
+      expect(reap.env(['TEST', 'DEBUG'])).toBe('true');
+      expect(reap.env('MISSING')).toBe(null);
+    });
+
+    test('follows double dash handling', () => {
+      const reap = cliReap(['./exe', '--flag', '--', '-v', '--in', 'in.txt']);
+
+      expect(reap.end()).toBe(true);
+      expect(reap.pos()).toEqual(['-v', '--in', 'in.txt']);
+
+      const reReap = cliReap(reap.pos());
+      expect(reReap.opt('in')).toBe('in.txt');
+    });
+
+  });
+
+
+  describe('flag() example', () => {
+    test('matches flag checks', () => {
+      const reap = cliReap(['node', 'app.js', '--verbose', '-d', '--force', 'file.txt']);
+
+      expect(reap.flag('verbose')).toBe(true);
+      expect(reap.flag(['d', 'debug'])).toBe(true);
+      expect(reap.flag('quiet')).toBe(null);
+      expect(reap.flag('force')).toBe(true);
+    });
+  });
+
+  describe('opt() example', () => {
+    test('retrieves option values exactly as documented', () => {
+      const reap = cliReap(['node', 'app.js', '--find=file.txt', '--data', 'dog.txt', '-v']);
+
+      expect(reap.opt('find')).toBe('file.txt');
+      expect(reap.opt(['d', 'data'])).toBe('dog.txt');
+      expect(reap.opt('v')).toBe(null);
+    });
+  });
+
+  describe('pos() example', () => {
+    test('mirrors positional example', () => {
+      const reap = cliReap(['node', 'app.js', '-v', 'input.txt', '-f', 'output.txt']);
+
+      expect(reap.pos()).toEqual(['input.txt', 'output.txt']);
+      expect(reap.opt('f')).toBe('output.txt');
+      expect(reap.pos()).toEqual(['input.txt']);
+    });
+  });
+
+  describe('cliReapStrict example', () => {
+    test('case sensitivity', () => {
+      expect(cliReap(['-I', 'test']).opt('i')).toBe('test');
+      expect(cliReapStrict(['-I', 'test']).opt('i')).toBe(null);
+    });
+
+    test('hyphen and underscore swapping', () => {
+      expect(cliReap(['--swap_in', 'loose']).opt('swap-in')).toBe('loose');
+      expect(cliReapStrict(['--swap_in', 'loose']).opt('swap-in')).toBe(null);
+    });
+
+    test('combined case and swapping handling', () => {
+      expect(cliReap(['--My_Key', 'value']).opt('my-key')).toBe('value');
+      expect(cliReapStrict(['--My_Key', 'value']).opt('my-key')).toBe(null);
+    });
+  });
+
+  describe('Duplicates example', () => {
+    test('basic duplicate option consumption', () => {
+      const reap = cliReap(['./my-cli', '--out', 'first', '--out', 'second', '--out=third']);
+      expect(reap.opt('out')).toBe('first');
+      expect(reap.opt('out')).toBe('second');
+      expect(reap.opt('out')).toBe('third');
+      expect(reap.opt('out')).toBe(null);
+    });
+
+    test('collects multiple output files as shown in README', () => {
+      const reap = cliReap(['./build', '--out', 'dist/', '--out', 'build/', '--out', 'public/']);
+      const outputs: string[] = [];
+      let output: string | null;
+      while ((output = reap.opt('out')) !== null) {
+        outputs.push(output);
+      }
+      expect(outputs).toEqual(['dist/', 'build/', 'public/']);
+    });
+
+    test('counts verbose flags according to README loop', () => {
+      const reap = cliReap(['./app', '-v', '-v', '-v']);
+      let verboseLevel = 0;
+      while (reap.flag('v') !== null) {
+        verboseLevel++;
+      }
+      expect(verboseLevel).toBe(3);
+    });
+  });
+});
