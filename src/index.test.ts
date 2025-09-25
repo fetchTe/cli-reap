@@ -1326,7 +1326,7 @@ input: ${reap.pos().pop()}`;
         const reap = cliReap();
         expect(reap.env('NODE_ENV')).toBe('development');
         expect(reap.env('DEBUG')).toBe('true');
-        expect(reap.env(['TEST', 'DEBUG'])).toBe('true');
+        expect(reap.env(['TESTER', 'DEBUG'])).toBe('true');
         expect(reap.env('MISSING')).toBe(null);
       } finally {
         if (previousNodeEnv === undefined) {
