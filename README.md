@@ -1,4 +1,12 @@
-# cli-reap
+<h1>
+cli-reap
+<a href="https://mibecode.com">
+  <img align="right" title="&#8805;95% Human Code" alt="&#8805;95% Human Code" src="https://mibecode.com/badge.svg" />
+</a>
+&nbsp;
+<img align="right" alt="NPM Version" src="https://img.shields.io/npm/v/cli-reap?color=white" />
+</h1>
+
 
 Your friendly neighborhood CLI reaper (parser), indifferent to argument order or runtime
 
