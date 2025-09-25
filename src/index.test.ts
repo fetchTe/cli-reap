@@ -7,7 +7,7 @@ import {
 } from 'bun:test';
 import {
   cliReap,
-  cliReapLoose,
+  cliReapStrict,
 } from './index.ts';
 
 // helper to generate different argv variations
@@ -35,10 +35,10 @@ const createArgvVariations = (flag: string, value: any): [string, (string | numb
     const fmt = format.join(' ');
     if (afmts.has(fmt)) { continue; }
     afmts.add(fmt);
-    // Standard: node script.js [args]
+    // standard: node script.js [args]
     variations.push([fmt, ['node', 'script.js', ...format] ]);
-    // // Args before node/script
-    // variations.push([fmt, [...format, 'node', 'script.js'] ]);
+    // args before node/script
+    variations.push([fmt, [...format, 'node', 'script.js'] ]);
     // aixed with other args
     variations.push([fmt, ['this', `--not-${flag}`, value, ...format, '--that', 'example'] ]);
     // args at end with other params
@@ -65,7 +65,7 @@ const BASE_TEST_CASES_DEF: BaseTestCasesDef = [
   ['string-case-sensitive-value', 'key', 'Test'],
   ['string-case-sensitive-value-mixed', 'key', 'tEsT'],
 
-  // special string Cases
+  // special string cases
   ['string-equals-symbol', 'key', '='],
 
   ['string-whitespace-only', 'key', '   '],
@@ -113,7 +113,7 @@ const BASE_TEST_CASES_DEF: BaseTestCasesDef = [
   ['file-path-windows', 'path', 'C:\\Program Files\\App'],
   ['relative-path', 'path', '../parent/file.txt'],
 
-  // boolean Cases
+  // boolean cases
   ['boolean-true', 'key', true],
   ['boolean-false', 'key', false],
   ['string-true', 'key', 'true'],
@@ -123,7 +123,7 @@ const BASE_TEST_CASES_DEF: BaseTestCasesDef = [
   ['string-mixed-case-true', 'key', 'True'],
   ['string-mixed-case-false', 'key', 'False'],
 
-  // Number Cases
+  // number cases
   ['number-zero', 'key', 0],
   ['number-one', 'key', 1],
   ['number-large', 'key', 420],
@@ -141,7 +141,7 @@ const BASE_TEST_CASES_DEF: BaseTestCasesDef = [
   ['string-not-a-number', 'key', 'NaN'],
 
 
-  // json misc
+  // JSON misc
   // eslint-disable-next-line @stylistic/comma-spacing
   ['json-array', 'json', JSON.stringify([1,2,3])],
   ['json-number', 'json', JSON.stringify(1)],
@@ -165,7 +165,7 @@ const BASE_TEST_CASES_DEF: BaseTestCasesDef = [
   // eslint-disable-next-line @stylistic/array-bracket-spacing
   ['js-dash-css-array', 'js-dash', JSON.stringify([ 'color:#0000;margin:0 -1px 0 -1ch;', 'color:^;', 'border-right:2px solid ^;', 'margin:-1px;font-family:Menlo,monospace;' ])],
 
-  // JSON Edge Cases
+  // JSON edge cases
   ['json-empty-object', 'json', JSON.stringify({})],
   ['json-empty-array', 'json', JSON.stringify([])],
   ['json-nested-object', 'json', JSON.stringify({a: {b: {c: 1}}})],
@@ -178,7 +178,7 @@ const BASE_TEST_CASES_DEF: BaseTestCasesDef = [
   ['security-script', 'key', '<script>alert(1)</script>'],
   ['security-encoded', 'key', encodeURIComponent('<script>alert(1)</script>')],
 
-  // Malformed Inputs
+  // malformed inputs
   ['malformed-json', 'json', '{invalid json'],
   ['malformed-value-brackets', 'key', '[test'],
   ['malformed-value-braces', 'key', '{test'],
@@ -186,7 +186,7 @@ const BASE_TEST_CASES_DEF: BaseTestCasesDef = [
   ['malformed-value-angle', 'key', '<test'],
   ['malformed-value-mixed', 'key', '[te{st}'],
 
-  // Edge Cases
+  // edge cases
   ['edge-value-leading-space', 'key', ' test'],
   ['edge-value-trailing-space', 'key', 'test '],
   ['edge-value-both-spaces', 'key', ' test '],
@@ -254,34 +254,47 @@ describe('argvParse().any()/variation (for flags)', () => {
 
 describe('argvParseLoose()', () => {
   test('swaps hyphens and underscores for key matching', () => {
-    expect(cliReapLoose(['-i-test', 'test']).opt('i-test')).toBe('test');
-    expect(cliReapLoose(['-i-test', 'test']).opt('i_test')).toBe('test');
-    expect(cliReapLoose(['-i_test', 'test']).opt('i-test')).toBe('test');
+    expect(cliReap(['-i-test', 'test']).opt('i-test')).toBe('test');
+    expect(cliReap(['-i-test', 'test']).opt('i_test')).toBe('test');
+    expect(cliReap(['-i_test', 'test']).opt('i-test')).toBe('test');
+
+    expect(cliReapStrict(['-i-test', 'test']).opt('i-test')).toBe('test');
+    expect(cliReapStrict(['-i-test', 'test']).opt('i_test')).toBe(null);
+    expect(cliReapStrict(['-i_test', 'test']).opt('i-test')).toBe(null);
   });
 
   test('matches keys case-insensitively', () => {
-    expect(cliReapLoose(['--I', 'test']).opt('i')).toBe('test');
-    expect(cliReapLoose(['-I', 'test']).opt('i')).toBe('test');
-    expect(cliReapLoose(['--i', 'test']).opt('I')).toBe('test');
-    expect(cliReapLoose(['-i', 'test']).opt('I')).toBe('test');
-    expect(cliReapLoose(['--I', 'test']).opt('I')).toBe('test');
-    expect(cliReapLoose(['-I', 'test']).opt('I')).toBe('test');
-    expect(cliReapLoose(['--i', 'test']).opt('i')).toBe('test');
-    expect(cliReapLoose(['-i', 'test']).opt('i')).toBe('test');
+    expect(cliReap(['--I', 'test']).opt('i')).toBe('test');
+    expect(cliReap(['-I', 'test']).opt('i')).toBe('test');
+    expect(cliReap(['--i', 'test']).opt('I')).toBe('test');
+    expect(cliReap(['-i', 'test']).opt('I')).toBe('test');
+    expect(cliReap(['--I', 'test']).opt('I')).toBe('test');
+    expect(cliReap(['-I', 'test']).opt('I')).toBe('test');
+    expect(cliReap(['--i', 'test']).opt('i')).toBe('test');
+    expect(cliReap(['-i', 'test']).opt('i')).toBe('test');
+
+    expect(cliReapStrict(['--I', 'test']).opt('i')).toBe(null);
+    expect(cliReapStrict(['-I', 'test']).opt('i')).toBe(null);
+    expect(cliReapStrict(['--i', 'test']).opt('I')).toBe(null);
+    expect(cliReapStrict(['-i', 'test']).opt('I')).toBe(null);
+    expect(cliReapStrict(['--I', 'test']).opt('I')).toBe('test');
+    expect(cliReapStrict(['-I', 'test']).opt('I')).toBe('test');
+    expect(cliReapStrict(['--i', 'test']).opt('i')).toBe('test');
+    expect(cliReapStrict(['-i', 'test']).opt('i')).toBe('test');
   });
 });
 
 describe('cliReap().opt()', () => {
   describe('Key Matching and Edge Cases', () => {
     test('is case-sensitive in strict mode', () => {
-      expect(cliReap(['--I', 'test']).opt('i')).toBe(null);
-      expect(cliReap(['-I', 'test']).opt('i')).toBe(null);
-      expect(cliReap(['--i', 'test']).opt('I')).toBe(null);
-      expect(cliReap(['-i', 'test']).opt('I')).toBe(null);
-      expect(cliReap(['--I', 'test']).opt('I')).toBe('test');
-      expect(cliReap(['-I', 'test']).opt('I')).toBe('test');
-      expect(cliReap(['--i', 'test']).opt('i')).toBe('test');
-      expect(cliReap(['-i', 'test']).opt('i')).toBe('test');
+      expect(cliReapStrict(['--I', 'test']).opt('i')).toBe(null);
+      expect(cliReapStrict(['-I', 'test']).opt('i')).toBe(null);
+      expect(cliReapStrict(['--i', 'test']).opt('I')).toBe(null);
+      expect(cliReapStrict(['-i', 'test']).opt('I')).toBe(null);
+      expect(cliReapStrict(['--I', 'test']).opt('I')).toBe('test');
+      expect(cliReapStrict(['-I', 'test']).opt('I')).toBe('test');
+      expect(cliReapStrict(['--i', 'test']).opt('i')).toBe('test');
+      expect(cliReapStrict(['-i', 'test']).opt('i')).toBe('test');
     });
 
     test('returns null for an empty key', () => {
@@ -421,7 +434,9 @@ describe('cliReap().flag()', () => {
   });
 
   test('is case-sensitive in strict mode', () => {
-    expect(cliReap(['--VERBOSE']).flag('verbose')).toBe(null);
+    expect(cliReapStrict(['--VERBOSE']).flag('verbose')).toBe(null);
+    expect(cliReapStrict(['--VERBOSE']).flag('VERBOSE')).toBe(true);
+    expect(cliReap(['--VERBOSE']).flag('verbose')).toBe(true);
     expect(cliReap(['--VERBOSE']).flag('VERBOSE')).toBe(true);
   });
 });
@@ -473,13 +488,17 @@ describe('cliReap().any() - Flag Presence', () => {
   });
 
   test('is case-sensitive for flags', () => {
-    expect(cliReap(['--FLAG']).any('flag')).toBe(null);
+    expect(cliReap(['--FLAG']).any('flag')).toBe(true);
     expect(cliReap(['--FLAG']).any('FLAG')).toBe(true);
+    expect(cliReapStrict(['--FLAG']).any('flag')).toBe(null);
+    expect(cliReapStrict(['--FLAG']).any('FLAG')).toBe(true);
   });
 
   test('is case-sensitive for single-dashed flags', () => {
-    expect(cliReap(['-FLAG']).any('flag')).toBe(null);
+    expect(cliReap(['-FLAG']).any('flag')).toBe(true);
     expect(cliReap(['-FLAG']).any('FLAG')).toBe(true);
+    expect(cliReapStrict(['-FLAG']).any('flag')).toBe(null);
+    expect(cliReapStrict(['-FLAG']).any('FLAG')).toBe(true);
   });
 
   test('is case-sensitive for flags with values', () => {
@@ -762,7 +781,8 @@ describe('cliReap().env()', () => {
   });
 
   test('handles loose matching of hyphens and underscores when enabled', () => {
-    expect(cliReapLoose([], procEnv).env('MY_VAR')).toBe('val');
+    expect(cliReap([], procEnv).env('MY_VAR')).toBe('val');
+    expect(cliReapStrict([], procEnv).env('MY_VAR')).toBe(null);
   });
 });
 
@@ -970,7 +990,7 @@ describe('cliReap() - Duplicate Flags/Options', () => {
   });
 });
 
-describe('README Examples - Documentation Tests', () => {
+describe('README Examples - Documentation Tests - v1', () => {
 
   describe('Introduction Example', () => {
     test('parses order-independent CLI arguments as shown in intro', () => {
@@ -1166,19 +1186,20 @@ describe('README Examples - Documentation Tests', () => {
     });
   });
 
-  describe('cliReapLoose examples', () => {
+  describe('cliReapStrict examples', () => {
     test('case sensitivity differences', () => {
-      expect(cliReap(['-I', 'test']).opt('i')).toBe(null); // strict: no match
-      expect(cliReapLoose(['-I', 'test']).opt('i')).toBe('test'); // loose: case-insensitive
+      expect(cliReapStrict(['-I', 'test']).opt('i')).toBe(null); // strict: no match
+      expect(cliReap(['-I', 'test']).opt('i')).toBe('test'); // loose: case-insensitive
     });
 
     test('hyphen/underscore swapping', () => {
-      expect(cliReap(['--swap_in', 'loose']).opt('swap-in')).toBe(null); // strict: no match
-      expect(cliReapLoose(['--swap_in', 'loose']).opt('swap-in')).toBe('loose'); // loose: swaps _ ↔ -
+      expect(cliReapStrict(['--swap_in', 'loose']).opt('swap-in')).toBe(null); // strict: no match
+      expect(cliReap(['--swap_in', 'loose']).opt('swap-in')).toBe('loose'); // loose: swaps _ ↔ -
     });
 
     test('both features combined', () => {
-      expect(cliReapLoose(['--My_Key', 'value']).opt('my-key')).toBe('value'); // case + swap
+      expect(cliReapStrict(['--My_Key', 'value']).opt('my-key')).toBe(null); // strict
+      expect(cliReap(['--My_Key', 'value']).opt('my-key')).toBe('value'); // case + swap
     });
   });
 
@@ -1229,3 +1250,8 @@ describe('README Examples - Documentation Tests', () => {
     });
   });
 });
+
+
+describe('README Examples - Documentation Tests - v2', () => {
+
+})

@@ -68,20 +68,22 @@ const isTerm = (val?: string) => val?.trim() === '--';
 
 /**
  * converts key(s) to array with optional loose matching (hyphen/underscore swapping)
- * @param  {string|string[]} key         - key or array of keys
- * @param  {boolean}         loose=false - enable loose matching
- * @param  {string[]}        _keys       - internal key array
+ * @param  {string|string[]} key          - key or array of keys
+ * @param  {boolean}         strict=false - enable strict matching
+ * @param  {string[]}        _keys        - internal key array
  * @return {string[]}
  */
-const toArr = (key: string | string[], loose = false, _keys = (Array.isArray(key) ? key : [key])) =>
-  (loose
-    // if loose swap '-' and '_' in keys
-    ? _keys.map(item =>
+const toArgvArray = (
+  key: string | string[], strict = false, _keys = (Array.isArray(key) ? key : [key]),
+) =>
+  (strict
+    ? _keys
+    // if (not strict) swap '-' and '_' in keys
+    : _keys.map(item =>
       [
         item,
         item.replaceAll(...((item.includes('_') ? ['_', '-'] : ['-', '_']) as [string, string])),
-      ]).flat()
-    : _keys);
+      ]).flat());
 
 
 /**
@@ -89,10 +91,10 @@ const toArr = (key: string | string[], loose = false, _keys = (Array.isArray(key
  * @param  {string[]}            argv=ARGV         - command-line arguments array
  * @param  {NodeJS.ProcessEnv}   env=ENV           - process environment variables
  * @param  {typeof globalThis}   gthis=GLOBAL_THIS - global object for runtime-set/fallback values
- * @param  {boolean}             loose=false       - enable loose matching (case/hyphen/underscore insensitive)
+ * @param  {boolean}             strict=false      - enable strict matching no (case/hyphen/underscore insensitive)
  * @return {CliReap}
  */
-export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = false): CliReap => {
+export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, strict = false): CliReap => {
   // makes assumption of a node-like env - if run second arg we assume bun/deno (bun run index.ts)
   const slice = argv[0] === 'node' ? 2 : (argv[1] === 'run' ? 3 : (isFlag(argv[0]) ? 0 : 1));
   const cur = argv.map(String).slice(slice);
@@ -100,7 +102,7 @@ export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = fal
   const end = !!cur.find(isTerm);
 
   const getArgv = (keys: string | string[], optValue = false) => {
-    const keyList = toArr(keys, loose);
+    const keyList = toArgvArray(keys, strict);
     for (let i = 0; i < cur.length; i++) {
       const token = cur[i];
       // the option terminator (--) -> terminates all into positionals (per. POSIX)
@@ -111,7 +113,7 @@ export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = fal
         // in case literal key passed in such as '--key' or '-key'
         const [k, ...parts] = token.replace(isFlag(key) ? /(?!)/ : /^\s*?-+/, '')
           // ensures 'f' key doesn't match '--flag'
-          .split(hasEq && optValue ? `${key}=` : new RegExp(`^${key}$`, loose ? 'i' : ''));
+          .split(hasEq && optValue ? `${key}=` : new RegExp(`^${key}$`, strict ? '' : 'i'));
         return !k?.length ? parts.join(key) : (k === key ? key : null);
       })
         .find(v => v !== null) ?? 0;
@@ -138,7 +140,7 @@ export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = fal
   };
 
   // environment arguments (process > globalThis)
-  const getEnv = (keys: string | string[]): string | null => (toArr(keys, loose).map(key =>
+  const getEnv = (keys: string | string[]): string | null => (toArgvArray(keys, strict).map(key =>
     ((key in env)
       ? env[key]
       : (key in gthis)
@@ -186,13 +188,14 @@ export const cliReap = (argv = ARGV, env = ENV, gthis = GLOBAL_THIS, loose = fal
 };
 
 /**
- * creates CLI argument parser with loose matching enabled (case/hyphen/underscore insensitive)
+ * creates CLI argument parser with strict matching enabled, case-sensitive and
+ * must match hyphen/underscore
  * @param  {string[]}            argv=ARGV         - command-line arguments array
  * @param  {NodeJS.ProcessEnv}   procEnv=ENV       - process environment variables
  * @param  {typeof globalThis}   gthis=GLOBAL_THIS - global object for runtime-set/fallback values
  * @return {CliReap}
  */
-export const cliReapLoose = (argv = ARGV, procEnv = ENV, gthis = GLOBAL_THIS) =>
+export const cliReapStrict = (argv = ARGV, procEnv = ENV, gthis = GLOBAL_THIS) =>
   cliReap(argv, procEnv, gthis, true);
 
 export default cliReap;
