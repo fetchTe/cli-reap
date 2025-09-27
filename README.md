@@ -3,7 +3,7 @@ cli-reap
 <a href="https://mibecode.com">
   <img align="right" title="&#8805;95% Human Code" alt="&#8805;95% Human Code" src="https://mibecode.com/badge.svg" />
 </a>
-&nbsp;
+<img align="right" alt="empty space" src="https://mibecode.com/4px.svg" />
 <img align="right" alt="NPM Version" src="https://img.shields.io/npm/v/cli-reap?color=white" />
 </h1>
 
@@ -341,7 +341,7 @@ verboseLevel === 3;
 ### ▎MAKEFILE REFERENCE
 
 ```
-# USAGE (cli-reap/v0.0.1)
+# USAGE
    make [flags...] <target>
 
 # TARGET
