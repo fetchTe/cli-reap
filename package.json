@@ -1,6 +1,6 @@
 {
   "name": "cli-reap",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "CLI and ENV parser; indifferent to argument order or runtime",
   "homepage": "https://github.com/fetchTe/cli-reap",
   "license": "MIT",
