@@ -168,7 +168,7 @@ release: ## clean, setup, build, lint, test, aok (everything but the kitchen sin
 	@$(MAKE) BAIL="1" lint_eslint || { $(MAKE) MSG="target lint_eslint failed..." _erro; exit 1; }
 	@$(MAKE) BAIL="1" lint_tsc || { $(MAKE) MSG="target lint_tsc failed..." _erro; exit 1; }
 	@# run tests (could also be run pre-lint if preferred)
-	@$(MAKE) _BPOS="test" _BOUT="$(TES)" ENV="TEST" _bun_factory
+	@$(MAKE) _BPOS="test" _BOUT="$(TES)" ENV="TEST" _bun_factory || { $(MAKE) MSG="target test failed..." _erro; exit 1; }
 	@# everythings aok -> re-build with min builds and without IS_TEST
 	@$(MAKE) MSG="release:build" SYM="--" COLOR="1;36" _init
 	@$(CMD_RM) "$(DST)" || true
