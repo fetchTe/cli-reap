@@ -111,7 +111,7 @@ GNUMAKEFLAGS += --no-print-directory
 # @id:internal
 #------------------------------------------------------------------------------#
 # bun .js build to target iife (acts as a conditional)
-_BIIF != { [ "$(TAR)" = "2" ] || [ "$(TAR)" = "3" ] && echo "iife"; } || echo "esm"
+_BIIF != { [ "$(TAR)" = "2" ] || [ "$(TAR)" = "3" ]; } && echo "iife" || echo "esm"
 # bun build target
 _BTAR = $$( { [ "$(TAR)" = "-1" ] && echo "bun" || { [ "$(TAR)" = "0" ] && echo "node" || echo "browser"; }; })
 # min logic for cjs
