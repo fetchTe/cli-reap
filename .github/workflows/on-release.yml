@@ -3,7 +3,7 @@ name: on-release
 env:
   # release artifacts (adjust to fit your use; an empty string will disable)
   #  > tars filename: bun-make.v1.0.2.tar.xz
-  ARTIFACTS   : '/tmp/tars/*.tar*,./dist/index.min.*,./dist/index.js,./dist/index.min.js,./dist/index.d.ts'
+  ARTIFACTS   : '/tmp/tars/*.tar*,./dist/index.js,./dist/index.cjs,./dist/index.d.ts'
   # set to '0' to disable commit links
   LINK_COMMITS: 1
   # set to '0' to consider all tags (otherwise tags must start with 'v')

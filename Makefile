@@ -57,7 +57,7 @@ EXE ?= js
 #! [?0] build target env (-1=bun, 0=node, 1=dom, 2=dom+iife, 3=dom+iife+userscript)
 TAR ?= 0
 #! [?1] builds minified (*.min.{mjs,cjs,js}) targets on 'make release'
-MIN ?= 1
+MIN ?= 0
 
 #: env flags
 #! [?1] fail fast (bail) on the first test or lint error
